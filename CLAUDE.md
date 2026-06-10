@@ -15,6 +15,36 @@ SaaS multi-tenant de gestão para buffets infantis e brinquedotecas no Brasil. R
 9. Nenhum segredo no código. Tudo via variáveis de ambiente (.env nunca commitado).
 10. Antes de encerrar QUALQUER tarefa: rodar `npx tsc --noEmit` e `npm run build`. Só encerrar com ZERO erros. Se houver erro, corrigir e rodar de novo até passar.
 
+## Design System
+
+### Paleta
+| Token | Valor | Uso |
+|---|---|---|
+| `--color-primary` | `#E8462A` | Botões, links, ativo na sidebar |
+| `--color-primary-light` | `#FEF0EC` | Fundo de ícones, hover sutil |
+| `--color-sidebar` | `#16131F` | Sidebar midnight |
+| `--color-background` | `#FAF9F7` | Fundo da app (warm off-white) |
+| `--color-success` | `#16A34A` | Dinheiro, status realizada |
+| `--color-destructive` | `#DC2626` | Erros, ações destrutivas |
+| Status orcamento | `#F59E0B` / `#FFFBEB` | Badge amber |
+| Status confirmada | `#3B82F6` / `#EFF6FF` | Badge blue |
+| Status realizada | `#16A34A` / `#F0FDF4` | Badge green |
+| Status cancelada | `#78716C` / `#F5F5F4` | Badge stone |
+
+### Tipografia
+- **Display**: Sora (Google Fonts) — geométrica, moderna, headings e logo
+- **Corpo**: Nunito (Google Fonts) — arredondada, amigável, texto geral
+
+### Componentes base criados
+- `PageHeader` — título + descrição + slot de ação
+- `EmptyState` — ilustração SVG de balões + CTA
+- `StatCard` — métrica com ícone, valor em display font, trend indicator
+- `StatusBadge` — badge por status de festa/orçamento com cor e dot
+
+### Backlog design
+- Dark mode (decidido adiar; tokens já preparados para extensão futura)
+- Code-splitting das rotas (bundle > 500 kB — tarefas futuras)
+
 ## Schema do banco (resumo)
 9 tabelas Postgres com RLS multi-tenant:
 - **organizations** — conta/empresa (planos: trial/essencial/profissional/rede)
@@ -30,6 +60,20 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-10 — Design System FestaHub
+**Feito nesta etapa:**
+- `src/index.css` — tokens completos Tailwind v4 `@theme`: paleta coral+midnight+warm, fontes Sora+Nunito via Google Fonts, animações (fade-up, scale-in, float, spin-slow), scrollbar customizada, `prefers-reduced-motion`
+- `src/components/PageHeader.tsx` — título em display font + descrição + slot de ação
+- `src/components/EmptyState.tsx` — SVG inline de balões com animação float + CTA
+- `src/components/StatCard.tsx` — card métrica com ícone colorido, valor em display font, trend up/down/neutral
+- `src/components/StatusBadge.tsx` — badge com dot colorido para todos os status de evento e orçamento
+- `src/pages/app/AppLayout.tsx` — sidebar midnight redesenhada (logo mark SVG, avatar inicial, badge trial), topbar com UserMenu com avatar
+- `src/pages/Login.tsx` — split layout: painel coral (gradient + dots pattern + features) + form
+- `src/pages/Cadastro.tsx` — split layout: painel midnight (gradient + stats grid) + form
+- `src/pages/Onboarding.tsx` — progress stepper (3 passos) + card flutuante com sombra
+- Páginas internas (Agenda/Clientes/Orçamentos/Financeiro/Configurações) — PageHeader + EmptyState aplicados
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
 ### 2026-06-10 — Auth + Onboarding multi-tenant
 **Feito nesta etapa:**
 - `src/services/auth.ts` — signUp, signIn, signOut, resetPassword, getSession
