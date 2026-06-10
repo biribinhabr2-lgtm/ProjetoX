@@ -60,6 +60,35 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-10 — Módulo Agenda de Festas
+**Feito nesta etapa:**
+- `src/services/events.ts` — listByMonth, createEvent, updateEvent, removeEvent, updateEventStatus, confirmEventWithTransactions, detectConflicts
+- `src/services/customers.ts` — listCustomers, createCustomer
+- `src/services/packages.ts` — listPackages
+- `src/services/transactions.ts` — createTransaction, createEventTransactions (sinal + restante automático)
+- `src/hooks/useEvents.ts` — estado de festas do mês: addEvent, editEvent, deleteEvent, changeStatus, confirmWithTransactions
+- `src/hooks/useCustomers.ts` — lista + addCustomer (atualiza estado local)
+- `src/hooks/usePackages.ts` — lista de pacotes da org
+- `src/components/ui/popover.tsx` — wrapper Radix Popover para o combobox
+- `src/components/agenda/EventChip.tsx` — chip colorido por status para células do calendário
+- `src/components/agenda/EventCard.tsx` — card com DropdownMenu: confirmar, sinal pago, realizada, cancelar, excluir
+- `src/components/agenda/MonthCalendar.tsx` — grade mensal date-fns (domingo primeiro), chips por célula (máx 3 + overflow), hoje destacado, selecionado com ring
+- `src/components/agenda/DayPanel.tsx` — painel lateral deslizante; overlay mobile; lista de EventCards do dia
+- `src/components/agenda/EventListView.tsx` — lista com busca + filtro de status; agrupada por data
+- `src/components/agenda/NewCustomerDialog.tsx` — mini-dialog criação inline de cliente (name, phone, child_name)
+- `src/components/agenda/CustomerCombobox.tsx` — Popover com busca; botão "+ Cadastrar novo cliente" no rodapé
+- `src/components/agenda/ConflictWarningDialog.tsx` — aviso de sobreposição com lista de conflitos e botão "Salvar mesmo assim"
+- `src/components/agenda/EventDialog.tsx` — form create/edit: zod baseSchema + createSchema (data no passado proibida ao criar); validações hora fim > início, sinal ≤ total; integra CustomerCombobox, Select de pacote, Switch sinal pago; detectConflicts antes de salvar; pendingPayload para confirmar sobreposição
+- `src/pages/app/Agenda.tsx` — orquestra tudo: Tabs (Calendário / Lista), navegação de mês, DayPanel, EventDialog, handlers de todas as ações rápidas
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**Próximas tarefas sugeridas:**
+- Módulo Clientes (`/app/clientes`) — CRUD completo com histórico de festas
+- Módulo Financeiro (`/app/financeiro`) — dashboard receita/despesa, extrato por período
+- Módulo Orçamentos (`/app/orcamentos`) — criar cotação, link público via RPC `get_public_quote`
+- Code-splitting das rotas (bundle atual > 500 kB)
+- Integração Mercado Pago Assinaturas
+
 ### 2026-06-10 — Design System FestaHub
 **Feito nesta etapa:**
 - `src/index.css` — tokens completos Tailwind v4 `@theme`: paleta coral+midnight+warm, fontes Sora+Nunito via Google Fonts, animações (fade-up, scale-in, float, spin-slow), scrollbar customizada, `prefers-reduced-motion`
