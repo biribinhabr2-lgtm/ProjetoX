@@ -60,6 +60,21 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-10 — Módulo Financeiro
+**Feito nesta etapa:**
+- `src/services/transactions.ts` — reescrito: `TRANSACTION_CATEGORIES` + `CATEGORY_LABELS` (Festa/Sinal/Alimentação/Equipe/Aluguel/Marketing/Outros), `listByPeriod` (filtros tipo/categoria/pago), `listLast6MonthsSummary` (agrupamento client-side, somas inteiras), `createTransaction`, `updateTransaction`, `removeTransaction`, `markPaid`; `createEventTransactions` preservado para compatibilidade com useEvents
+- `src/components/financeiro/TransactionForm.tsx` — formulário create/edit: toggle tipo (receita/despesa) com cores, `Math.round(amount_reais * 100)` para centavos, categoria (Select), forma de pagamento, Switch pago + campo paid_at condicional; `Resolver<FormData, any>` cast para `z.coerce.number()`
+- `src/components/financeiro/BarChart6Months.tsx` — gráfico recharts `BarChart` responsivo; dados em centavos; `tickFormatter` e `CustomTooltip` (nível de módulo) convertem para BRL só na exibição; saldo em verde/vermelho no tooltip
+- `src/pages/app/Financeiro.tsx` — `SummaryCard`, `TransactionRow`, `DeleteDialog` em nível de módulo (Regra 2); seletor mês/ano com `ChevronLeft/Right`; 4 StatCards (Receitas/Despesas/Saldo/A receber com badge de vencidos em vermelho); `BarChart6Months`; tabela com filtros tipo+categoria+status; ação rápida "marcar como pago" (ícone hover); rodapé com totais; Dialog create/edit + Dialog delete
+- Todas as somas monetárias via `reduce` com inteiros — zero aritmética float em valores monetários ✓
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**Próximas tarefas sugeridas:**
+- Code-splitting das rotas (bundle atual > 1,2 MB)
+- Integração Mercado Pago Assinaturas
+- Vincular `event_id` no quote após "Converter em festa"
+- Relatório financeiro PDF / exportação CSV
+
 ### 2026-06-10 — Módulo Orçamentos com Link Público de Aceite
 **Feito nesta etapa:**
 - `supabase/migrations/0003_public_quote_actions.sql` — `ALTER TABLE quotes ADD COLUMN notes text` + RPC `update_public_quote_status(p_token, p_status)` SECURITY DEFINER com grant para `anon`
