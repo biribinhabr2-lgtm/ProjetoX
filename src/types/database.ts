@@ -163,3 +163,13 @@ export interface EventWithDetails extends Event {
 export interface QuoteWithCustomer extends Quote {
   customer: Pick<Customer, 'id' | 'name' | 'phone' | 'email'>
 }
+
+/** Customer com estatísticas calculadas a partir de events */
+export interface CustomerWithStats extends Customer {
+  /** Soma de total_cents de events com status confirmada/realizada */
+  total_spent_cents: number
+  /** Quantidade de eventos confirmados/realizados */
+  events_count: number
+  /** Data ISO da festa mais recente (confirmada/realizada) */
+  last_event_date: string | null
+}

@@ -60,6 +60,25 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-10 — Módulo Clientes com Radar de Aniversários
+**Feito nesta etapa:**
+- `src/types/database.ts` — adicionado `CustomerWithStats` (extends Customer + total_spent_cents / events_count / last_event_date)
+- `src/services/customers.ts` — reescrito: `listCustomers` (search + paginação 25/página + sort name/last_event client-side), `createCustomer`, `updateCustomer`, `removeCustomer` (bloqueia se houver festas vinculadas com `CustomerHasEventsError`), `listCustomerEvents`
+- `src/hooks/useCustomers.ts` — atualizado para nova assinatura (retorna Customer[] flat para o combobox da Agenda)
+- `src/lib/birthday.ts` — `daysUntilBirthday`, `ageAtNextBirthday`, `isBirthdaySoon`, `maskPhone`, `unmaskedPhone`, `whatsappLink`
+- `src/components/ui/sheet.tsx` — Sheet slide-over reutilizável (usa Radix Dialog)
+- `src/components/clientes/CustomerForm.tsx` — form com máscara de telefone + zod (nome, telefone, email, CPF, criança, data de nascimento, observações)
+- `src/components/clientes/BirthdayRadar.tsx` — seção "Aniversários próximos" (45 dias): cards com urgência colorida, link WhatsApp, badge de dias restantes
+- `src/components/clientes/CustomerDrawer.tsx` — drawer lateral: avatar, badge "Aniversário em Xd", stats (festas/total gasto/última festa), contatos com links, histórico de festas
+- `src/pages/app/Clientes.tsx` — tabela com busca + sort (nome/última festa) + paginação, BirthdayRadar no topo, drawer de detalhes, dialogs de criação/edição/exclusão com soft-block
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**Próximas tarefas sugeridas:**
+- Módulo Financeiro (`/app/financeiro`) — dashboard receita/despesa, extrato por período
+- Módulo Orçamentos (`/app/orcamentos`) — criar cotação, link público via RPC `get_public_quote`
+- Code-splitting das rotas (bundle atual > 800 kB)
+- Integração Mercado Pago Assinaturas
+
 ### 2026-06-10 — Módulo Agenda de Festas
 **Feito nesta etapa:**
 - `src/services/events.ts` — listByMonth, createEvent, updateEvent, removeEvent, updateEventStatus, confirmEventWithTransactions, detectConflicts

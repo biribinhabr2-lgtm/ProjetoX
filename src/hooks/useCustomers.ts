@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { listCustomers, createCustomer, type CreateCustomerPayload } from '@/services/customers'
 import type { Customer } from '@/types/database'
 
+/**
+ * Hook simples de clientes para a Agenda (CustomerCombobox).
+ * Retorna lista plana de Customer[] sem stats (suficiente para o combobox de seleção).
+ */
 export function useCustomers(orgId: string | undefined) {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading,   setLoading]   = useState(false)
@@ -10,7 +14,8 @@ export function useCustomers(orgId: string | undefined) {
     if (!orgId) return
     setLoading(true)
     try {
-      const data = await listCustomers(orgId)
+      // Busca até 1000 clientes (suficiente para qualquer buffet)
+      const { data } = await listCustomers(orgId, { pageSize: 1000 })
       setCustomers(data)
     } finally {
       setLoading(false)
