@@ -16,7 +16,30 @@ SaaS multi-tenant de gestão para buffets infantis e brinquedotecas no Brasil. R
 10. Antes de encerrar QUALQUER tarefa: rodar `npx tsc --noEmit` e `npm run build`. Só encerrar com ZERO erros. Se houver erro, corrigir e rodar de novo até passar.
 
 ## Estado atual
-(atualize esta seção ao fim de cada tarefa: o que foi feito, o que falta, decisões tomadas)
+### 2026-06-10 — Scaffold completo
+**Feito:**
+- Vite + React 18 + TypeScript estrito configurado (alias `@` → `src/`)
+- Tailwind CSS v4 via `@tailwindcss/vite` (sem `tailwind.config.js` — abordagem v4)
+- Variáveis de tema CSS em `src/index.css` com `@theme`
+- shadcn/ui instalado manualmente (CLI incompatível com project references): button, input, card, label, textarea, badge, dialog, select, tabs, dropdown-menu, switch, table, form
+- `src/lib/supabase.ts` com client Supabase via env vars
+- `.env.example` com `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
+- React Router com todas as rotas: `/`, `/login`, `/cadastro`, `/app/*`
+- Layout protegido (`AppLayout`) com sidebar de navegação
+- Zustand, react-hook-form, zod, @hookform/resolvers, sonner instalados
+- `npx tsc --noEmit` → zero erros ✓
+- `npm run build` → sucesso ✓
+
+**Falta:**
+- Autenticação real (Supabase Auth)
+- Implementação das páginas (agenda, clientes, orçamentos, financeiro, configurações)
+- Integração Mercado Pago
+- Migrations do banco Supabase
+
+**Decisões:**
+- shadcn configurado manualmente (CLI v4.x incompatível com tsconfig project references)
+- Tailwind v4 usa `@theme` em CSS em vez de `tailwind.config.js`
+- `ignoreDeprecations: "6.0"` necessário para `baseUrl` no TS 5.x
 
 ## Comandos
 - dev: npm run dev
