@@ -60,6 +60,26 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-10 — Módulo Orçamentos com Link Público de Aceite
+**Feito nesta etapa:**
+- `supabase/migrations/0003_public_quote_actions.sql` — `ALTER TABLE quotes ADD COLUMN notes text` + RPC `update_public_quote_status(p_token, p_status)` SECURITY DEFINER com grant para `anon`
+- `src/types/database.ts` — adicionado campo `notes: string | null` ao `Quote`
+- `src/services/quotes.ts` — `listQuotes` (search + filtro status), `createQuote`, `updateQuote`, `removeQuote`, `getPublicQuote` (RPC existente), `updatePublicQuoteStatus` (nova RPC)
+- `src/components/orcamentos/QuoteForm.tsx` — form com `useFieldArray` para itens dinâmicos (descrição, qtd, valor unit. em reais → centavos no payload), total calculado em tempo real, CustomerCombobox inline, zod
+- `src/pages/app/Orcamentos.tsx` — lista com busca + filtro por status, botão "Copiar link" (copy + toast), link externo para página pública, menu ⋮ com editar/excluir/converter; banner de aceitos aguardando conversão; `EventDialog` pré-preenchido para converter orçamento em festa
+- `src/components/agenda/EventDialog.tsx` — adicionado suporte à prop `prefill?: EventDialogPrefill` para pré-preencher customer_id + total ao converter orçamento
+- `src/pages/OrcamentoPublico.tsx` — página pública `/orcamento/:token`: sem import de authStore; design caprichado (dark header, tabela de itens com totals, banner de status, botões de aceite/recusa com loading state, botão flutuante WhatsApp); lê via `get_public_quote` e escreve via `update_public_quote_status`
+- `src/App.tsx` — adicionada rota `/orcamento/:token` fora do ProtectedRoute
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**⚠️ Ação manual necessária:** executar `supabase/migrations/0003_public_quote_actions.sql` no SQL Editor do Supabase.
+
+**Próximas tarefas sugeridas:**
+- Módulo Financeiro (`/app/financeiro`) — dashboard receita/despesa, extrato por período
+- Code-splitting das rotas (bundle atual > 880 kB)
+- Integração Mercado Pago Assinaturas
+- Vincular `event_id` no quote após "Converter em festa"
+
 ### 2026-06-10 — Módulo Clientes com Radar de Aniversários
 **Feito nesta etapa:**
 - `src/types/database.ts` — adicionado `CustomerWithStats` (extends Customer + total_spent_cents / events_count / last_event_date)

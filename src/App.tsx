@@ -13,6 +13,7 @@ import Clientes from '@/pages/app/Clientes'
 import Orcamentos from '@/pages/app/Orcamentos'
 import Financeiro from '@/pages/app/Financeiro'
 import Configuracoes from '@/pages/app/Configuracoes'
+import OrcamentoPublico from '@/pages/OrcamentoPublico'
 
 export default function App() {
   const initialize = useAuthStore((s) => s.initialize)
@@ -29,6 +30,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/onboarding" element={<Onboarding />} />
+        {/* Rota pública — sem ProtectedRoute, sem authStore */}
+        <Route path="/orcamento/:token" element={<OrcamentoPublico />} />
         <Route
           path="/app"
           element={

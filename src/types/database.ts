@@ -105,6 +105,7 @@ export interface Quote {
   total_cents: number | null
   status: QuoteStatus
   valid_until: string | null  // date → 'YYYY-MM-DD'
+  notes: string | null        // adicionado em 0003_public_quote_actions.sql
 }
 
 export interface QuoteItem {

@@ -92,12 +92,20 @@ function FieldError({ message }: { message?: string }) {
 }
 
 // ── Props principais ──────────────────────────────────────────
+/** Dados de pré-preenchimento ao converter orçamento em festa */
+export interface EventDialogPrefill {
+  customer_id?:   string
+  total_cents?:   number
+  deposit_cents?: number
+}
+
 export interface EventDialogProps {
   open:       boolean
   mode:       'create' | 'edit'
   orgId:      string
   initialDate?: string            // pré-preenche a data ao criar
   event?:     EventWithDetails    // preenche o form ao editar
+  prefill?:   EventDialogPrefill  // pré-preenche ao criar a partir de orçamento
   customers:  Customer[]
   packages:   Package[]
   onClose:    () => void
@@ -122,7 +130,7 @@ export interface EventFormPayload {
 
 // ── EventDialog ───────────────────────────────────────────────
 export function EventDialog({
-  open, mode, orgId, initialDate, event,
+  open, mode, orgId, initialDate, event, prefill,
   customers, packages,
   onClose, onCreate, onUpdate, onAddCustomer,
 }: EventDialogProps) {
@@ -175,20 +183,20 @@ export function EventDialog({
       })
     } else {
       reset({
-        customer_id:   '',
+        customer_id:   prefill?.customer_id ?? '',
         package_id:    null,
         title:         '',
         date:          initialDate ?? today(),
         start_time:    '',
         end_time:      '',
         guests_count:  null,
-        total_reais:   0,
-        deposit_reais: 0,
+        total_reais:   prefill?.total_cents != null ? prefill.total_cents / 100 : 0,
+        deposit_reais: prefill?.deposit_cents != null ? prefill.deposit_cents / 100 : 0,
         deposit_paid:  false,
         notes:         '',
       })
     }
-  }, [open, mode, event, initialDate, reset])
+  }, [open, mode, event, initialDate, prefill, reset])
 
   // Pré-seleciona pacote ao escolher
   function handlePackageChange(pkgId: string) {
