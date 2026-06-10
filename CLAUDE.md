@@ -30,6 +30,29 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-10 — Auth + Onboarding multi-tenant
+**Feito nesta etapa:**
+- `src/services/auth.ts` — signUp, signIn, signOut, resetPassword, getSession
+- `src/services/orgs.ts` — createOrgWithOwner, getMyOrgAndMembership
+- `src/services/profiles.ts` — getProfile
+- `src/stores/authStore.ts` — zustand: session/user/profile/organization/membership/loading; initialize() com onAuthStateChange; refreshOrg(); clear()
+- `src/pages/Login.tsx` — react-hook-form + zod, erros em PT-BR, visual shadcn
+- `src/pages/Cadastro.tsx` — idem, com confirmação de senha
+- `src/pages/Onboarding.tsx` — cria org + membership owner; redireciona para /app/agenda
+- `src/components/ProtectedRoute.tsx` — sem sessão → /login; sem org → /onboarding
+- `src/pages/app/AppLayout.tsx` — sidebar desktop + drawer mobile (hamburger), topbar com UserMenu (nome, sair)
+- App.tsx — initialize() no useEffect; rota /onboarding adicionada; /app envolto em ProtectedRoute
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**Fluxos testados mentalmente:**
+1. Cadastro novo → confirmação de e-mail → Login → sem org → /onboarding → preenche dados → /app/agenda ✓
+2. Login usuário existente com org → direto /app/agenda ✓
+3. Login usuário existente sem org (edge case) → /onboarding ✓
+4. Acesso direto a /app sem sessão → /login ✓
+5. Acesso direto a /app com sessão mas sem org → /onboarding ✓
+6. Sair → clear() store → /login ✓
+7. Loading state → spinner centralizado enquanto getSession carrega ✓
+
 ### 2026-06-10 — Schema completo com RLS
 **Feito nesta etapa:**
 - `supabase/migrations/0001_schema.sql` — 9 tabelas, RLS em todas, função helper `user_org_ids()`, trigger `handle_new_user`, RPC `get_public_quote`, índices
