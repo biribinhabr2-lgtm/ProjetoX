@@ -60,6 +60,43 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-10 — Cobrança Recorrente Mercado Pago (Edge Functions)
+**Feito nesta etapa:**
+- `supabase/config.toml` — configuração de funções: `create-subscription` com `verify_jwt=true`, `mp-webhook` com `verify_jwt=false` (MP não envia JWT)
+- `supabase/functions/_shared/cors.ts` — `corsHeaders`, `corsPreflightResponse()`, `jsonResponse()` reutilizáveis
+- `supabase/functions/_shared/mp-api.ts` — interfaces `MpPreapproval`, `MpPreapprovalCreateBody`, `MpAutoRecurring`, `MpResult<T>`; função `mpFetch<T>()` com header `Authorization: Bearer`, `X-Idempotency-Key` e tratamento de erro de rede + parse
+- `supabase/functions/create-subscription/index.ts`:
+  - Lê secrets via `Deno.env.get` (MP_ACCESS_TOKEN, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, APP_URL)
+  - Verifica JWT com `admin.auth.getUser(jwt)` (service role)
+  - Valida `plan` ∈ {essencial, profissional, rede}
+  - Verifica `memberships.role = 'owner'` antes de criar assinatura
+  - `POST /preapproval` no MP: reason "FestaHub – {Plano}", auto_recurring mensal BRL (97/197/397), back_url, external_reference = org_id
+  - Persiste `subscription_id`, `plan`, `subscription_status='pending'` na organização
+  - Retorna `{ init_point, subscription_id }`
+- `supabase/functions/mp-webhook/index.ts`:
+  - `verify_jwt=false` (endpoint público para o MP)
+  - Responde 200 imediatamente; processamento real em background (`void processWebhook(...)`)
+  - Suporta formato v1 (`type: 'subscription_preapproval'`) e legado (`topic: 'preapproval'`)
+  - **Segurança**: NUNCA confia no corpo do webhook — sempre verifica `GET /preapproval/{id}` na API do MP antes de aplicar mudança
+  - Verifica existência da org via `external_reference` antes de atualizar
+  - Mapeamento: authorized→active, paused/cancelled→inactive, pending→pending
+  - Grava `audit_log` com `action='mp_webhook_processed'`
+- `src/services/billing.ts` — `startSubscription(plan)`: invoca Edge Function via `supabase.functions.invoke` (auto-injeta JWT), recebe `init_point`, redireciona `window.location.href`; `PLANS[]` com preços em centavos para exibição; `getPlanInfo(planId)`
+- `supabase/functions/README.md` — comandos exatos de deploy (`supabase functions deploy`), como setar os 2 secrets, URL do webhook no painel MP, fluxo completo, instruções de sandbox
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**⚠️ Ações manuais necessárias (ver supabase/functions/README.md):**
+1. `supabase functions deploy create-subscription --project-ref <REF>`
+2. `supabase functions deploy mp-webhook --project-ref <REF>`
+3. `supabase secrets set MP_ACCESS_TOKEN="APP_xxx..." --project-ref <REF>`
+4. `supabase secrets set APP_URL="https://seu-dominio.com" --project-ref <REF>`
+5. Cadastrar `https://<REF>.supabase.co/functions/v1/mp-webhook` no painel MP → Webhooks → evento `subscription_preapproval`
+
+**Próximas tarefas sugeridas:**
+- Página de planos em `/app/configuracoes` usando `startSubscription` e `PLANS`
+- Code-splitting das rotas (bundle atual > 1,2 MB)
+- Vincular `event_id` no quote após "Converter em festa"
+
 ### 2026-06-10 — Módulo Financeiro
 **Feito nesta etapa:**
 - `src/services/transactions.ts` — reescrito: `TRANSACTION_CATEGORIES` + `CATEGORY_LABELS` (Festa/Sinal/Alimentação/Equipe/Aluguel/Marketing/Outros), `listByPeriod` (filtros tipo/categoria/pago), `listLast6MonthsSummary` (agrupamento client-side, somas inteiras), `createTransaction`, `updateTransaction`, `removeTransaction`, `markPaid`; `createEventTransactions` preservado para compatibilidade com useEvents

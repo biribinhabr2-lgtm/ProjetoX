@@ -1,0 +1,15 @@
+# Configuração do projeto Supabase
+# Referência: https://supabase.com/docs/guides/functions/deploy#configuration
+
+# ── Edge Functions ────────────────────────────────────────────────────────
+
+# create-subscription: requer JWT (padrão — não precisa declarar)
+[functions.create-subscription]
+verify_jwt = true
+
+# mp-webhook: endpoint público para o Mercado Pago; sem JWT
+# O MP não envia Authorization header nas notificações.
+# Segurança garantida por verificação ativa na API do MP (nunca confiamos
+# apenas no corpo da requisição).
+[functions.mp-webhook]
+verify_jwt = false
