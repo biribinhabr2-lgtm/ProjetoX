@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
+import { Analytics } from '@vercel/analytics/react'
 import { useAuthStore } from '@/stores/authStore'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -14,6 +15,7 @@ import Clientes from '@/pages/app/Clientes'
 import Orcamentos from '@/pages/app/Orcamentos'
 import Financeiro from '@/pages/app/Financeiro'
 import Configuracoes from '@/pages/app/Configuracoes'
+import Indique from '@/pages/app/Indique'
 import OrcamentoPublico from '@/pages/OrcamentoPublico'
 import Termos from '@/pages/Termos'
 import Privacidade from '@/pages/Privacidade'
@@ -52,9 +54,11 @@ export default function App() {
           <Route path="orcamentos" element={<Orcamentos />} />
           <Route path="financeiro" element={<Financeiro />} />
           <Route path="configuracoes" element={<Configuracoes />} />
+          <Route path="indique" element={<Indique />} />
         </Route>
       </Routes>
       <Toaster richColors position="top-right" />
+      <Analytics />
     </BrowserRouter>
     </ErrorBoundary>
   )

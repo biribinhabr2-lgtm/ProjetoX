@@ -1,14 +1,15 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { signUp } from '@/services/auth'
+import { trackCadastroIniciado } from '@/lib/analytics'
 
 const schema = z
   .object({
@@ -105,7 +106,14 @@ function BrandPanel() {
 // ─── Página Cadastro ─────────────────────────────────────────
 export default function Cadastro() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [submitting, setSubmitting] = useState(false)
+
+  // Captura ?ref= e persiste para o onboarding usar
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref) sessionStorage.setItem('festahub_ref', ref)
+  }, [searchParams])
 
   const {
     register,
@@ -114,6 +122,7 @@ export default function Cadastro() {
   } = useForm<FormData>({ resolver: zodResolver(schema) })
 
   async function onSubmit(data: FormData) {
+    trackCadastroIniciado()
     setSubmitting(true)
     try {
       await signUp(data.email, data.password, data.fullName)

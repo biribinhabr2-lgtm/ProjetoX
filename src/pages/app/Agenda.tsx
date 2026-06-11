@@ -25,6 +25,7 @@ import { useEvents } from '@/hooks/useEvents'
 import { useCustomers } from '@/hooks/useCustomers'
 import { usePackages } from '@/hooks/usePackages'
 import { useAuthStore } from '@/stores/authStore'
+import { trackPrimeiraFestaCriada } from '@/lib/analytics'
 import type { EventWithDetails } from '@/types/database'
 
 // ── Agenda ────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ export default function Agenda() {
   // ── Handlers EventDialog ────────────────────────────────────
   async function handleCreate(payload: EventFormPayload) {
     if (!orgId) return
+    const isFirst = events.length === 0
     await addEvent({
       org_id:        orgId,
       customer_id:   payload.customer_id,
@@ -91,6 +93,7 @@ export default function Agenda() {
       deposit_paid:  payload.deposit_paid,
       notes:         payload.notes,
     })
+    if (isFirst) trackPrimeiraFestaCriada()
   }
 
   async function handleUpdate(id: string, payload: EventFormPayload) {

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { createOrgWithOwner } from '@/services/orgs'
 import { useAuthStore } from '@/stores/authStore'
 import { sendEmail } from '@/services/email'
+import { trackOnboardingConcluido } from '@/lib/analytics'
 
 const schema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -42,8 +43,11 @@ export default function Onboarding() {
     if (!user) return
     setSubmitting(true)
     try {
-      await createOrgWithOwner(user.id, data)
+      const referred_by = sessionStorage.getItem('festahub_ref') ?? null
+      sessionStorage.removeItem('festahub_ref')
+      await createOrgWithOwner(user.id, { ...data, referred_by })
       await refreshOrg()
+      trackOnboardingConcluido()
       // Fire-and-forget: não bloqueia onboarding se e-mail falhar
       void sendEmail({
         to: user.email ?? '',

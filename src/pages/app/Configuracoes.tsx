@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
+import { useSearchParams } from 'react-router-dom'
 import {
   Building2,
   CheckCircle2,
@@ -22,6 +23,7 @@ import { updateOrg } from '@/services/orgs'
 import { startSubscription, PLANS } from '@/services/billing'
 import type { BillingPlan } from '@/services/billing'
 import { usePlan } from '@/hooks/usePlan'
+import { trackCliqueAssinar, trackAssinaturaConcluida } from '@/lib/analytics'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -127,6 +129,7 @@ function PlanCard({ info, isCurrent, isActive }: PlanCardProps) {
   const Icon = PLAN_ICONS[info.id]
 
   async function handleUpgrade() {
+    trackCliqueAssinar(info.id)
     setLoading(true)
     try {
       await startSubscription(info.id)
@@ -267,6 +270,18 @@ function BillingSection() {
 // ─── Configuracoes ───────────────────────────────────────────────────────────
 
 export default function Configuracoes() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { plan } = usePlan()
+
+  // Detecta retorno do Mercado Pago após pagamento bem-sucedido
+  useEffect(() => {
+    if (searchParams.get('sub') === 'ok') {
+      trackAssinaturaConcluida(plan !== 'trial' ? plan : undefined)
+      toast.success('Assinatura ativada! Bem-vindo ao FestaHub 🎉')
+      setSearchParams({}, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- executa só no mount
+
   return (
     <div className="space-y-6">
       <PageHeader

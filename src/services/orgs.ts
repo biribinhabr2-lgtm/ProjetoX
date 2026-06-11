@@ -14,6 +14,7 @@ export interface CreateOrgPayload {
   name: string
   city: string
   phone: string
+  referred_by?: string | null
 }
 
 export interface OrgWithMembership {
@@ -30,10 +31,11 @@ export async function createOrgWithOwner(
   const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`
 
   const { data: rpcData, error: rpcError } = await supabase.rpc('create_org_with_owner', {
-    p_name:  payload.name,
-    p_slug:  slug,
-    p_city:  payload.city,
-    p_phone: payload.phone,
+    p_name:        payload.name,
+    p_slug:        slug,
+    p_city:        payload.city,
+    p_phone:       payload.phone,
+    p_referred_by: payload.referred_by ?? null,
   })
 
   if (rpcError) throw rpcError

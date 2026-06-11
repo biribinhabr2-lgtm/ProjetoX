@@ -6,6 +6,7 @@ import {
   FileText,
   DollarSign,
   Settings,
+  Gift,
   Menu,
   X,
   LogOut,
@@ -31,6 +32,7 @@ const navItems = [
   { to: '/app/clientes',      label: 'Clientes',      icon: Users      },
   { to: '/app/orcamentos',    label: 'Orçamentos',    icon: FileText   },
   { to: '/app/financeiro',    label: 'Financeiro',    icon: DollarSign },
+  { to: '/app/indique',       label: 'Indicar',       icon: Gift       },
   { to: '/app/configuracoes', label: 'Configurações', icon: Settings   },
 ]
 

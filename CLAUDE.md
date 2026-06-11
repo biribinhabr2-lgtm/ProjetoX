@@ -76,6 +76,21 @@ RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, ac
 - Code-splitting das rotas (bundle > 1,3 MB)
 - Vincular `event_id` no quote após "Converter em festa"
 
+### 2026-06-11 — Analytics e Indicação
+**Feito nesta etapa:**
+- **Analytics**: Vercel Analytics (`@vercel/analytics`) — zero cookies, LGPD-compliant, gratuito no plano Vercel. `<Analytics />` em `App.tsx`. `src/lib/analytics.ts` com funções tipadas para 5 eventos.
+- **Eventos rastreados**: `cadastro_iniciado` (Cadastro.tsx ao submeter), `onboarding_concluido` (Onboarding.tsx após sucesso), `primeira_festa_criada` (Agenda.tsx quando events.length === 0 antes do addEvent), `clique_assinar` (Configuracoes.tsx antes de startSubscription), `assinatura_concluida` (Configuracoes.tsx ao detectar `?sub=ok` na URL)
+- **Indicação**: `?ref=slug` capturado em Cadastro.tsx → salvo em `sessionStorage` → lido em Onboarding.tsx → passado ao RPC `create_org_with_owner` → coluna `referred_by` em organizations
+- `supabase/migrations/0004_referral.sql` — `ALTER TABLE organizations ADD COLUMN referred_by text` + RPC `create_org_with_owner` atualizada com parâmetro `p_referred_by`
+- `src/pages/app/Indique.tsx` — página `/app/indique`: exibe link `festahub.com.br/cadastro?ref={slug}`, botão copiar, dicas de compartilhamento, botão WhatsApp com mensagem pré-formatada
+- `AppLayout.tsx` — "Indicar" (ícone Gift) adicionado ao menu lateral
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**⚠️ Ação manual necessária:**
+- Executar `supabase/migrations/0004_referral.sql` no SQL Editor do Supabase
+
+**Vercel Analytics:** ativo automaticamente após o deploy na Vercel (zero configuração). Dashboard em vercel.com → projeto → Analytics.
+
 ### 2026-06-11 — Deploy config
 **Feito nesta etapa:**
 - `vercel.json` — já existia com rewrite SPA correto (`/(.*) → /index.html`), buildCommand, outputDirectory e framework confirmados
