@@ -3,6 +3,10 @@
 ## O que é
 SaaS multi-tenant de gestão para buffets infantis e brinquedotecas no Brasil. React + Vite + TypeScript + Tailwind + shadcn/ui no frontend; Supabase (Postgres, Auth, RLS, Edge Functions) no backend; Mercado Pago Assinaturas para cobrança; deploy na Vercel. Idioma da UI: português do Brasil. Moeda: BRL.
 
+## Lições aprendidas (bugs já corrigidos — nunca repetir)
+- **EventDialog como delegador puro**: o `EventDialog` nunca persiste dados sozinho — ele apenas coleta o formulário e chama o `onSave` callback do pai. Toda página que abre um `EventDialog` PRECISA chamar `createEvent` (ou `addEvent`) explicitamente no handler `onSave`. Deixar `void payload` ou ignorar o callback = evento nunca criado no banco.
+- **Edge Functions com secrets obrigatórios**: funções que dependem de `APP_URL`, `MP_ACCESS_TOKEN` ou similar retornam 500 silenciosamente se os secrets não estiverem setados. Sempre documentar e checar os secrets necessários antes de testar em produção (ver DEPLOY.md checklist).
+
 ## Regras INEGOCIÁVEIS de código
 1. TypeScript estrito. Proibido `any` sem justificativa em comentário.
 2. NUNCA definir um componente React dentro do corpo de outro componente (causa violação de hooks).

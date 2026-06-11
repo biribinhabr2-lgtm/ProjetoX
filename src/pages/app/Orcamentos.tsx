@@ -30,6 +30,7 @@ import { EventDialog, type EventFormPayload } from '@/components/agenda/EventDia
 import {
   listQuotes, createQuote, updateQuote, removeQuote,
 } from '@/services/quotes'
+import { createEvent } from '@/services/events'
 import { useCustomers } from '@/hooks/useCustomers'
 import { usePackages } from '@/hooks/usePackages'
 import { useAuthStore } from '@/stores/authStore'
@@ -288,19 +289,30 @@ export default function Orcamentos() {
   }
 
   async function handleEventCreate(payload: EventFormPayload) {
-    // A criação real da festa é feita pelo EventDialog + useEvents na Agenda.
-    // Aqui apenas vinculamos o event_id ao quote após criar.
-    // Por simplicidade, abrimos o EventDialog e deixamos o usuário criar diretamente.
-    // O EventDialog mostrará o toast de sucesso e fechará.
     if (!orgId || !convertQuote) return
-    // Após criar a festa, atualizamos o status do quote para "aceito" se ainda não estiver
-    // e marcamos o event_id (requer o ID retornado pelo EventDialog — aqui apenas reload)
-    void loadQuotes()
+    try {
+      await createEvent({
+        org_id:        orgId,
+        customer_id:   payload.customer_id,
+        package_id:    payload.package_id,
+        title:         payload.title,
+        date:          payload.date,
+        start_time:    payload.start_time,
+        end_time:      payload.end_time,
+        guests_count:  payload.guests_count,
+        total_cents:   payload.total_cents,
+        deposit_cents: payload.deposit_cents,
+        deposit_paid:  payload.deposit_paid,
+        notes:         payload.notes,
+      })
+      toast.success('Festa criada! Acesse a Agenda para visualizá-la.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar festa')
+      return
+    }
     setEventDialogOpen(false)
     setConvertQuote(null)
-    toast.info('Festa criada! Vincule o orçamento manualmente se necessário.')
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    void payload
+    void loadQuotes()
   }
 
   if (!orgId) return null
