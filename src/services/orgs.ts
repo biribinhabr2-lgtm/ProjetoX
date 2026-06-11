@@ -21,36 +21,30 @@ export interface OrgWithMembership {
   membership: Membership
 }
 
-/** Cria organização + membership owner em transação lógica (2 inserts). */
+/** Cria organização + membership owner via RPC SECURITY DEFINER (bypassa RLS do onboarding). */
 export async function createOrgWithOwner(
-  userId: string,
+  _userId: string,
   payload: CreateOrgPayload,
 ): Promise<OrgWithMembership> {
   const baseSlug = slugify(payload.name)
   const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`
 
-  const { data: org, error: orgError } = await supabase
-    .from('organizations')
-    .insert({
-      name: payload.name,
-      slug,
-      city: payload.city,
-      phone: payload.phone,
-    })
-    .select()
-    .single()
+  const { data: rpcData, error: rpcError } = await supabase.rpc('create_org_with_owner', {
+    p_name:  payload.name,
+    p_slug:  slug,
+    p_city:  payload.city,
+    p_phone: payload.phone,
+  })
 
-  if (orgError) throw orgError
+  if (rpcError) throw rpcError
 
-  const { data: membership, error: memberError } = await supabase
-    .from('memberships')
-    .insert({ org_id: org.id, user_id: userId, role: 'owner' })
-    .select()
-    .single()
+  const { org_id } = rpcData as { org_id: string }
 
-  if (memberError) throw memberError
+  // Busca os registros criados para retornar tipado
+  const result = await getMyOrgAndMembership(_userId)
+  if (!result) throw new Error('Organização criada mas não encontrada')
 
-  return { organization: org as Organization, membership: membership as Membership }
+  return result
 }
 
 /** Busca organização e membership do usuário autenticado. */
