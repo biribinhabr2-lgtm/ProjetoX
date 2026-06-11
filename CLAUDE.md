@@ -76,6 +76,28 @@ RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, ac
 - Code-splitting das rotas (bundle > 1,3 MB)
 - Vincular `event_id` no quote após "Converter em festa"
 
+### 2026-06-11 — E-mails Transacionais via Resend
+**Feito nesta etapa:**
+- `supabase/functions/send-email/index.ts` — Edge Function `verify_jwt=false`: recebe `{ to, template, data }`, usa `RESEND_API_KEY` (Supabase Secret, jamais no bundle). 3 templates HTML branded inline-CSS: `boas-vindas`, `trial-acabando`, `orcamento-aceito`. Para `orcamento-aceito`, `to` é omitido — busca o e-mail do owner internamente via service role (`memberships` → `auth.admin.getUserById`).
+- `supabase/config.toml` — adicionado `[functions.send-email]` com `verify_jwt = false`
+- `src/services/email.ts` — wrapper `sendEmail()` (Regra 4): encapsula `supabase.functions.invoke('send-email', ...)`, fire-and-forget (erros logados, nunca propagados)
+- `src/pages/Onboarding.tsx` — dispara `boas-vindas` logo após `refreshOrg()`, void (não bloqueia)
+- `src/services/quotes.ts` — `updatePublicQuoteStatus()` aceita `ctx?: PublicStatusContext`; dispara `orcamento-aceito` quando `status === 'aceito' && result.ok`
+- `src/pages/OrcamentoPublico.tsx` — passa `PublicStatusContext` com `org_id`, `org_name`, `customer_name`, `total` formatado em BRL
+- `supabase/functions/README.md` — adicionado `RESEND_API_KEY` na tabela de secrets, seção 7 completa com templates, payloads e documentação do cron para `trial-acabando`
+- `grep -r "RESEND" dist/` → NOT FOUND ✓ | `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**⚠️ Ação manual necessária:**
+1. `supabase functions deploy send-email --project-ref <REF>`
+2. `supabase secrets set RESEND_API_KEY="re_xxx..." --project-ref <REF>`
+3. No painel Resend: verificar domínio `festahub.com.br` para envio via `noreply@festahub.com.br`
+
+**Próximas tarefas sugeridas:**
+- Code-splitting das rotas (bundle > 1,3 MB)
+- Vincular `event_id` no quote após "Converter em festa"
+- Relatório financeiro PDF / exportação CSV
+- Cron para `trial-acabando` (GitHub Actions ou Supabase pg_cron)
+
 ### 2026-06-11 — Paywall e Limites de Plano
 **Feito nesta etapa:**
 - `src/hooks/usePlan.ts` — hook `usePlan()`: expõe `{ plan, isTrial, trialDaysLeft, isActive, can(feature) }`. Trial ativo = `plan === 'trial' && trialDaysLeft > 0`; assinatura ativa = `subscription_status === 'active'`. Features: `public_quotes` (profissional/rede), `multiple_units` (rede), `multi_user` (profissional/rede)

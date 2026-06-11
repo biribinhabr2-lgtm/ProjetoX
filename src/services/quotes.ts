@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '@/lib/supabase'
+import { sendEmail } from '@/services/email'
 import type { Quote, QuoteItem, QuoteStatus, QuoteWithCustomer, PublicQuoteResponse } from '@/types/database'
 
 const QUOTE_SELECT =
@@ -122,9 +123,17 @@ export interface PublicStatusUpdateResult {
   quote_id?: string
 }
 
+export interface PublicStatusContext {
+  orgId: string
+  orgName: string
+  customerName: string
+  total: string
+}
+
 export async function updatePublicQuoteStatus(
   token: string,
   status: 'aceito' | 'recusado',
+  ctx?: PublicStatusContext,
 ): Promise<PublicStatusUpdateResult> {
   const { data, error } = await supabase.rpc('update_public_quote_status', {
     p_token:  token,
@@ -132,5 +141,20 @@ export async function updatePublicQuoteStatus(
   })
   if (error) throw error
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC retorna json bruto
-  return data as PublicStatusUpdateResult
+  const result = data as PublicStatusUpdateResult
+
+  // Notifica o dono do buffet quando o cliente aceita — fire-and-forget
+  if (status === 'aceito' && result.ok && ctx) {
+    void sendEmail({
+      template: 'orcamento-aceito',
+      data: {
+        org_id:        ctx.orgId,
+        org_name:      ctx.orgName,
+        customer_name: ctx.customerName,
+        total:         ctx.total,
+      },
+    })
+  }
+
+  return result
 }

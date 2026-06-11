@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createOrgWithOwner } from '@/services/orgs'
 import { useAuthStore } from '@/stores/authStore'
+import { sendEmail } from '@/services/email'
 
 const schema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -43,6 +44,12 @@ export default function Onboarding() {
     try {
       await createOrgWithOwner(user.id, data)
       await refreshOrg()
+      // Fire-and-forget: não bloqueia onboarding se e-mail falhar
+      void sendEmail({
+        to: user.email ?? '',
+        template: 'boas-vindas',
+        data: { name: user.user_metadata?.full_name ?? user.email ?? '', org_name: data.name },
+      })
       toast.success('Buffet configurado! Bem-vindo ao FestaHub 🎉')
       navigate('/app/agenda', { replace: true })
     } catch (err: unknown) {

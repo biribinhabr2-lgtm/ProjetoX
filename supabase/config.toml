@@ -13,3 +13,8 @@ verify_jwt = true
 # apenas no corpo da requisição).
 [functions.mp-webhook]
 verify_jwt = false
+
+# send-email: chamável pelo frontend público (orcamento-aceito não tem sessão)
+# e autenticado (boas-vindas). RESEND_API_KEY fica exclusivamente no servidor.
+[functions.send-email]
+verify_jwt = false

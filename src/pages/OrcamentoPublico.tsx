@@ -17,6 +17,7 @@ import {
   ShieldCheck, Clock, PartyPopper,
 } from 'lucide-react'
 import { getPublicQuote, updatePublicQuoteStatus } from '@/services/quotes'
+import type { PublicStatusContext } from '@/services/quotes'
 import { whatsappLink } from '@/lib/birthday'
 import type { PublicQuoteResponse } from '@/types/database'
 
@@ -205,7 +206,16 @@ export default function OrcamentoPublico() {
     if (!token) return
     setActionState(action === 'aceito' ? 'accepting' : 'refusing')
     try {
-      const result = await updatePublicQuoteStatus(token, action)
+      const ctx: PublicStatusContext | undefined = (action === 'aceito' && quoteData)
+        ? {
+            orgId:        quoteData.quote.org_id,
+            orgName:      quoteData.organization.name,
+            customerName: quoteData.customer?.name ?? 'Cliente',
+            total:        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+                            .format(quoteData.quote.total_cents / 100),
+          }
+        : undefined
+      const result = await updatePublicQuoteStatus(token, action, ctx)
       if (!result.ok) {
         setErrorMsg(result.error ?? 'Erro ao processar resposta.')
         setActionState('idle')

@@ -1,17 +1,19 @@
 # FestaHub — Edge Functions
 
-Duas Edge Functions gerenciam o ciclo de cobrança via Mercado Pago Assinaturas.
+Três Edge Functions: cobrança recorrente via Mercado Pago + e-mails transacionais via Resend.
 
 ```
 supabase/functions/
 ├── _shared/
-│   ├── cors.ts       — cabeçalhos CORS + helpers de response
-│   └── mp-api.ts     — tipos MP + fetcher genérico (sem segredos)
+│   ├── cors.ts             — cabeçalhos CORS + helpers de response
+│   └── mp-api.ts           — tipos MP + fetcher genérico (sem segredos)
 ├── create-subscription/
-│   └── index.ts      — cria preapproval MP (requer JWT de owner)
+│   └── index.ts            — cria preapproval MP (requer JWT de owner)
 ├── mp-webhook/
-│   └── index.ts      — recebe notificações MP (verify_jwt = false)
-└── README.md         — este arquivo
+│   └── index.ts            — recebe notificações MP (verify_jwt = false)
+├── send-email/
+│   └── index.ts            — e-mails transacionais via Resend (verify_jwt = false)
+└── README.md               — este arquivo
 ```
 
 ---
@@ -33,6 +35,7 @@ supabase/functions/
 |------------------------------|------------|
 | `MP_ACCESS_TOKEN`            | [Painel MP → Suas integrações → Credenciais de produção](https://www.mercadopago.com.br/developers/panel/app) → **Access token** |
 | `APP_URL`                    | URL base do frontend em produção, ex: `https://festahub.vercel.app` (sem barra final) |
+| `RESEND_API_KEY`             | [Resend Dashboard](https://resend.com/api-keys) → Create API Key |
 | `SUPABASE_URL`               | Injetado automaticamente pelo runtime — **não precisa setar** |
 | `SUPABASE_SERVICE_ROLE_KEY`  | Injetado automaticamente pelo runtime — **não precisa setar** |
 
@@ -48,6 +51,9 @@ supabase secrets set MP_ACCESS_TOKEN="APP_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
 supabase secrets set APP_URL="https://festahub.vercel.app" \
   --project-ref <REF>
 
+supabase secrets set RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  --project-ref <REF>
+
 # Confirmar secrets registrados (os valores ficam ocultos)
 supabase secrets list --project-ref <REF>
 ```
@@ -57,11 +63,12 @@ supabase secrets list --project-ref <REF>
 ## 3. Deploy das funções
 
 ```bash
-# Deploy de ambas as funções
+# Deploy individual
 supabase functions deploy create-subscription --project-ref <REF>
 supabase functions deploy mp-webhook --project-ref <REF>
+supabase functions deploy send-email --project-ref <REF>
 
-# Ou as duas de uma vez
+# Ou todas de uma vez
 supabase functions deploy --project-ref <REF>
 ```
 
@@ -123,7 +130,70 @@ Para testar sem cobranças reais:
 
 ---
 
-## 7. Variáveis de ambiente no frontend
+## 7. E-mails transacionais (send-email)
+
+### Templates disponíveis
+
+| Template | Quando disparar | Destinatário |
+|---|---|---|
+| `boas-vindas` | Após onboarding — org criada | E-mail do usuário (`to` obrigatório) |
+| `trial-acabando` | 3 dias antes do trial expirar | E-mail do owner (`to` obrigatório) |
+| `orcamento-aceito` | Cliente clica em "Aceitar" no link público | Owner da org (buscado server-side via `org_id`) |
+
+### Payload da função
+
+```json
+{
+  "to": "usuario@exemplo.com",        // obrigatório exceto para orcamento-aceito
+  "template": "boas-vindas",
+  "data": {
+    "name": "Maria",
+    "org_name": "Buffet das Estrelas"
+  }
+}
+```
+
+Para `orcamento-aceito`, passe `data.org_id` em vez de `to` — a função busca o e-mail do owner internamente:
+
+```json
+{
+  "template": "orcamento-aceito",
+  "data": {
+    "org_id":       "uuid-da-org",
+    "org_name":     "Buffet das Estrelas",
+    "customer_name": "João Silva",
+    "total":        "R$ 1.500,00"
+  }
+}
+```
+
+### Disparos automáticos no app
+
+- **boas-vindas**: `src/pages/Onboarding.tsx` — logo após `refreshOrg()`, fire-and-forget
+- **orcamento-aceito**: `src/services/quotes.ts → updatePublicQuoteStatus()` — disparado quando `status === 'aceito'` e RPC retorna `ok: true`
+
+### Cron para trial-acabando (passo manual)
+
+O Supabase ainda não tem cron nativo (pg_cron fica no banco, não em Edge Functions).
+Até a funcionalidade estar disponível, configure um cron externo (GitHub Actions, Render Cron, etc.)
+que chame a função diariamente:
+
+```bash
+# Exemplo com curl (rode de um GitHub Actions workflow às 09h)
+curl -X POST "https://<REF>.supabase.co/functions/v1/send-email" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "to": "<OWNER_EMAIL>",
+    "template": "trial-acabando",
+    "data": { "name": "<NAME>", "org_name": "<ORG>", "days_left": "3" }
+  }'
+```
+
+Futuramente: buscar todas as orgs com `trial_ends_at = now() + 3 days` e disparar em lote.
+
+---
+
+## 8. Variáveis de ambiente no frontend
 
 O frontend só precisa das variáveis públicas do Supabase (sem segredos MP):
 
