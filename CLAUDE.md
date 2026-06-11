@@ -76,6 +76,26 @@ RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, ac
 - Code-splitting das rotas (bundle > 1,3 MB)
 - Vincular `event_id` no quote após "Converter em festa"
 
+### 2026-06-11 — Auditoria pré-deploy
+**Feito nesta etapa:**
+- `src/components/ErrorBoundary.tsx` — ErrorBoundary global (class component); tela amigável com logo, mensagem e botão "Recarregar página"; erro técnico visível apenas em `import.meta.env.DEV`
+- `src/App.tsx` — `<ErrorBoundary>` envolvendo toda a árvore (BrowserRouter + Toaster)
+- `src/components/agenda/CustomerCombobox.tsx` — `aria-label="Buscar cliente"` adicionado ao `<input>` de busca (acessibilidade)
+- `README.md` — criado: stack, funcionalidades, como rodar local, variáveis de ambiente, deploy Vercel, estrutura do projeto
+- Checklist completo (ver relatório no commit):
+  - `tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+  - Nenhum componente aninhado, hook condicional, console.log ou float monetário encontrado
+  - Nenhum `service_role` no frontend; `as any` existente já tinha comentário justificando
+  - Todas as rotas protegidas usam ProtectedRoute; rotas públicas não importam authStore ✓
+  - RLS presente em todas as 9 tabelas com políticas completas (select/insert/update/delete) ✓
+  - Migrations: sintaxe correta, SECURITY DEFINER correto nas RPCs, grant anon correto ✓
+  - Acessibilidade: `aria-label` adicionado; labels presentes nos forms; sem `<img>` sem alt ✓
+
+**Próximas tarefas sugeridas:**
+- Code-splitting das rotas (bundle > 1,3 MB)
+- Vincular `event_id` no quote após "Converter em festa"
+- Relatório financeiro PDF / exportação CSV
+
 ### 2026-06-11 — E-mails Transacionais via Resend
 **Feito nesta etapa:**
 - `supabase/functions/send-email/index.ts` — Edge Function `verify_jwt=false`: recebe `{ to, template, data }`, usa `RESEND_API_KEY` (Supabase Secret, jamais no bundle). 3 templates HTML branded inline-CSS: `boas-vindas`, `trial-acabando`, `orcamento-aceito`. Para `orcamento-aceito`, `to` é omitido — busca o e-mail do owner internamente via service role (`memberships` → `auth.admin.getUserById`).

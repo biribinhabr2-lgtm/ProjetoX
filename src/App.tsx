@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { useAuthStore } from '@/stores/authStore'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import Landing from '@/pages/Landing'
 import Login from '@/pages/Login'
 import Cadastro from '@/pages/Cadastro'
@@ -26,6 +27,7 @@ export default function App() {
   }, [initialize])
 
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
@@ -54,5 +56,6 @@ export default function App() {
       </Routes>
       <Toaster richColors position="top-right" />
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }

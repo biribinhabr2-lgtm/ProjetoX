@@ -63,6 +63,7 @@ export function CustomerCombobox({
         <div className="flex items-center border-b px-3 py-2">
           <Search className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
           <input
+            aria-label="Buscar cliente"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             placeholder="Buscar cliente…"
             value={search}
