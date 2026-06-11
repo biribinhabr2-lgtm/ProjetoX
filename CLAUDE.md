@@ -60,6 +60,22 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-11 — Landing Page de Conversão
+**Feito nesta etapa:**
+- `src/pages/Landing.tsx` — landing page completa em português, mobile-first: hero (headline + CalendarMockup CSS), seção de dores (3 cards), funcionalidades (4 FeaturePanel alternados com mockups CSS puros — AgendaMockupSmall, OrcamentoMockupSmall, FinanceiroMockupSmall, RadarMockupSmall), depoimentos com TODO, tabela de preços (Profissional em destaque com glow coral), FAQ com `<details>/<summary>` CSS-only, CTA banner e footer com links legais. Zero imagens externas.
+- `src/pages/Termos.tsx` — Termos de Uso com 8 seções, marcados com TODO para revisão jurídica
+- `src/pages/Privacidade.tsx` — Política de Privacidade conforme LGPD (10 seções), marcada com TODO para DPO e revisão jurídica
+- `src/App.tsx` — rotas `/termos` e `/privacidade` adicionadas
+- `index.html` — `lang="pt-BR"`, title, meta description, OG tags, Twitter Card, Google Fonts (Sora+Nunito) com `display=swap`
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**Próximas tarefas sugeridas:**
+- Substituir depoimentos placeholder (marcados com TODO) por reais
+- Adicionar og:image e twitter:image (screenshot 1200×630px da plataforma)
+- Nomear DPO e revisar Termos/Privacidade com assessoria jurídica
+- Code-splitting das rotas (bundle > 1,3 MB)
+- Vincular `event_id` no quote após "Converter em festa"
+
 ### 2026-06-11 — Paywall e Limites de Plano
 **Feito nesta etapa:**
 - `src/hooks/usePlan.ts` — hook `usePlan()`: expõe `{ plan, isTrial, trialDaysLeft, isActive, can(feature) }`. Trial ativo = `plan === 'trial' && trialDaysLeft > 0`; assinatura ativa = `subscription_status === 'active'`. Features: `public_quotes` (profissional/rede), `multiple_units` (rede), `multi_user` (profissional/rede)
