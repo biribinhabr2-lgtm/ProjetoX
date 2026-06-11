@@ -182,7 +182,7 @@ export function TransactionForm({
             name="category"
             control={control}
             render={({ field }) => (
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select value={field.value || undefined} onValueChange={field.onChange}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder="Selecionar…" />
                 </SelectTrigger>
