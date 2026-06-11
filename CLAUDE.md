@@ -76,6 +76,24 @@ RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, ac
 - Code-splitting das rotas (bundle > 1,3 MB)
 - Vincular `event_id` no quote após "Converter em festa"
 
+### 2026-06-11 — Deploy config
+**Feito nesta etapa:**
+- `vercel.json` — já existia com rewrite SPA correto (`/(.*) → /index.html`), buildCommand, outputDirectory e framework confirmados
+- Variáveis de ambiente no build: apenas `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (confirmado por grep em `src/`)
+- `DEPLOY.md` — guia completo idiot-proof: GitHub (remote + push), Vercel (import + env vars), domínio próprio (DNS), Supabase Auth (Site URL + Redirect URLs), Resend produção, checklist final pré-lançamento com todos os passos manuais pendentes
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**URLs de produção (placeholder — atualizar após configurar domínio):**
+- Frontend: `https://festahub.com.br` (ou `https://festahub-xxxx.vercel.app` temporariamente)
+- Supabase: `https://mjnjxhtkfmwhzatgpbox.supabase.co`
+- Edge Functions: `https://mjnjxhtkfmwhzatgpbox.supabase.co/functions/v1/*`
+
+**Ações manuais pendentes (ver DEPLOY.md para detalhes):**
+- Subir repo para GitHub e importar na Vercel
+- Configurar `APP_URL` secret com URL de produção
+- Configurar Site URL + Redirect URLs no Supabase Auth
+- Verificar domínio no Resend e trocar `from` na Edge Function
+
 ### 2026-06-11 — Auditoria pré-deploy
 **Feito nesta etapa:**
 - `src/components/ErrorBoundary.tsx` — ErrorBoundary global (class component); tela amigável com logo, mensagem e botão "Recarregar página"; erro técnico visível apenas em `import.meta.env.DEV`
