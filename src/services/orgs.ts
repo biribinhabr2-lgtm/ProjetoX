@@ -47,6 +47,25 @@ export async function createOrgWithOwner(
   return result
 }
 
+export interface UpdateOrgPayload {
+  name: string
+  city: string
+  phone: string
+}
+
+/** Atualiza dados da organização do usuário. */
+export async function updateOrg(
+  orgId: string,
+  payload: UpdateOrgPayload,
+): Promise<void> {
+  const { error } = await supabase
+    .from('organizations')
+    .update({ name: payload.name, city: payload.city, phone: payload.phone })
+    .eq('id', orgId)
+
+  if (error) throw error
+}
+
 /** Busca organização e membership do usuário autenticado. */
 export async function getMyOrgAndMembership(
   userId: string,

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   Calendar,
   Users,
@@ -10,6 +10,7 @@ import {
   X,
   LogOut,
   ChevronDown,
+  AlertTriangle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/stores/authStore'
 import { signOut } from '@/services/auth'
+import { usePlan } from '@/hooks/usePlan'
 
 const navItems = [
   { to: '/app/agenda',        label: 'Agenda',        icon: Calendar   },
@@ -54,6 +56,78 @@ function Avatar({ name }: { name: string }) {
       style={{ background: 'var(--color-primary)', fontFamily: 'var(--font-display)' }}
     >
       {initial}
+    </div>
+  )
+}
+
+// ─── SidebarPlanBadge ────────────────────────────────────────
+function SidebarPlanBadge() {
+  const navigate = useNavigate()
+  const { plan, isTrial, trialDaysLeft, isActive } = usePlan()
+
+  if (!isTrial && isActive) return null
+
+  const bg = isActive
+    ? 'rgba(232, 70, 42, 0.12)'
+    : 'rgba(220, 38, 38, 0.12)'
+  const border = isActive
+    ? '1px solid rgba(232, 70, 42, 0.2)'
+    : '1px solid rgba(220, 38, 38, 0.2)'
+  const textColor = isActive ? 'var(--color-primary)' : 'var(--color-destructive)'
+  const label = isTrial && isActive
+    ? `Trial — ${trialDaysLeft}d restante${trialDaysLeft !== 1 ? 's' : ''}`
+    : plan === 'trial'
+    ? 'Trial expirado'
+    : 'Assinatura inativa'
+
+  return (
+    <div className="px-3 pb-4">
+      <button
+        onClick={() => navigate('/app/configuracoes')}
+        className="w-full rounded-lg px-3 py-2.5 text-left transition-opacity hover:opacity-80"
+        style={{ background: bg, border }}
+      >
+        <p className="text-xs font-semibold" style={{ color: textColor }}>
+          {label}
+        </p>
+        <p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-sidebar-muted)' }}>
+          Clique para ver planos
+        </p>
+      </button>
+    </div>
+  )
+}
+
+// ─── TrialBanner ─────────────────────────────────────────────
+function TrialBanner() {
+  const navigate = useNavigate()
+  const { isTrial, trialDaysLeft, isActive } = usePlan()
+
+  // só mostra quando trial ativo com ≤ 7 dias OU trial expirado
+  if (!isTrial) return null
+  if (isActive && trialDaysLeft > 7) return null
+
+  const expired = !isActive
+  const bg = expired ? 'var(--color-destructive)' : '#F59E0B'
+  const msg = expired
+    ? 'Seu período de trial expirou.'
+    : `Seu trial expira em ${trialDaysLeft} dia${trialDaysLeft !== 1 ? 's' : ''}.`
+
+  return (
+    <div
+      className="flex shrink-0 items-center justify-between gap-4 px-4 py-2 text-sm font-medium text-white"
+      style={{ background: bg }}
+    >
+      <span className="flex items-center gap-2">
+        <AlertTriangle className="h-4 w-4 shrink-0" />
+        {msg} Assine agora para continuar usando o FestaHub.
+      </span>
+      <button
+        onClick={() => navigate('/app/configuracoes')}
+        className="shrink-0 rounded-md border border-white/30 px-3 py-1 text-xs font-semibold transition-opacity hover:opacity-80"
+      >
+        Ver planos
+      </button>
     </div>
   )
 }
@@ -155,20 +229,8 @@ function Sidebar({ onClose }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Plano trial badge */}
-      <div className="px-3 pb-4">
-        <div
-          className="rounded-lg px-3 py-2.5"
-          style={{ background: 'rgba(232, 70, 42, 0.12)', border: '1px solid rgba(232, 70, 42, 0.2)' }}
-        >
-          <p className="text-xs font-semibold" style={{ color: 'var(--color-primary)' }}>
-            Plano Trial
-          </p>
-          <p className="mt-0.5 text-[10px]" style={{ color: 'var(--color-sidebar-muted)' }}>
-            14 dias grátis restantes
-          </p>
-        </div>
-      </div>
+      {/* Plano badge na sidebar */}
+      <SidebarPlanBadge />
     </div>
   )
 }
@@ -229,6 +291,16 @@ function UserMenu() {
 // ─── AppLayout ───────────────────────────────────────────────
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { isActive } = usePlan()
+
+  // Paywall: conta inativa → forçar /app/configuracoes
+  useEffect(() => {
+    if (!isActive && location.pathname !== '/app/configuracoes') {
+      navigate('/app/configuracoes', { replace: true })
+    }
+  }, [isActive, location.pathname, navigate])
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -283,6 +355,9 @@ export default function AppLayout() {
           <div className="flex-1" />
           <UserMenu />
         </header>
+
+        {/* Banner de trial */}
+        <TrialBanner />
 
         {/* Conteúdo */}
         <main className="flex-1 overflow-auto bg-background p-5 md:p-6">

@@ -60,6 +60,19 @@ Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 
 ## Estado atual
+### 2026-06-11 — Paywall e Limites de Plano
+**Feito nesta etapa:**
+- `src/hooks/usePlan.ts` — hook `usePlan()`: expõe `{ plan, isTrial, trialDaysLeft, isActive, can(feature) }`. Trial ativo = `plan === 'trial' && trialDaysLeft > 0`; assinatura ativa = `subscription_status === 'active'`. Features: `public_quotes` (profissional/rede), `multiple_units` (rede), `multi_user` (profissional/rede)
+- `src/services/orgs.ts` — adicionado `updateOrg(orgId, payload)` para editar nome/cidade/telefone via `.update()`
+- `src/pages/app/AppLayout.tsx` — `SidebarPlanBadge`: badge dinâmico na sidebar (dias do trial ou "inativo"); `TrialBanner`: faixa amarela (≤7d) ou vermelha (expirado) acima do conteúdo; paywall redirect via `useEffect` + `useNavigate` → se `!isActive` redireciona para `/app/configuracoes`
+- `src/pages/app/Configuracoes.tsx` — página completa: `OrgForm` (edita nome/cidade/telefone + máscara de telefone); `BillingSection` (status badge, alerta expirado/trial-curto, grid de 3 `PlanCard`); `PlanCard` (ícone, preço BRL, features, botão assinar → `startSubscription`)
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**Próximas tarefas sugeridas:**
+- Code-splitting das rotas (bundle > 1,2 MB)
+- Vincular `event_id` no quote após "Converter em festa"
+- Relatório financeiro PDF / exportação CSV
+
 ### 2026-06-10 — Cobrança Recorrente Mercado Pago (Edge Functions)
 **Feito nesta etapa:**
 - `supabase/config.toml` — configuração de funções: `create-subscription` com `verify_jwt=true`, `mp-webhook` com `verify_jwt=false` (MP não envia JWT)
