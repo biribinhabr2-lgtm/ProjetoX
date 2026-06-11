@@ -432,24 +432,30 @@ export default function Financeiro() {
         {/* ── Filtros ── */}
         <div className="flex flex-wrap gap-2">
           {/* Tipo */}
-          <Select value={filterType} onValueChange={(v) => setFilterType(v as TransactionType | '')}>
+          <Select
+            value={filterType || 'all'}
+            onValueChange={(v) => setFilterType(v === 'all' ? '' : v as TransactionType)}
+          >
             <SelectTrigger className="h-8 w-36 text-xs">
               <SelectValue placeholder="Tipo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="receita">Receitas</SelectItem>
               <SelectItem value="despesa">Despesas</SelectItem>
             </SelectContent>
           </Select>
 
           {/* Categoria */}
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <Select
+            value={filterCategory || 'all'}
+            onValueChange={(v) => setFilterCategory(v === 'all' ? '' : v)}
+          >
             <SelectTrigger className="h-8 w-40 text-xs">
               <SelectValue placeholder="Categoria" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todas</SelectItem>
+              <SelectItem value="all">Todas</SelectItem>
               {TRANSACTION_CATEGORIES.map((cat) => (
                 <SelectItem key={cat} value={cat}>{CATEGORY_LABELS[cat]}</SelectItem>
               ))}
@@ -457,12 +463,15 @@ export default function Financeiro() {
           </Select>
 
           {/* Pago/Pendente */}
-          <Select value={filterPaid ?? ''} onValueChange={(v) => setFilterPaid(v as ListByPeriodOptions['paid'])}>
+          <Select
+            value={filterPaid || 'all'}
+            onValueChange={(v) => setFilterPaid(v === 'all' ? '' : v as ListByPeriodOptions['paid'])}
+          >
             <SelectTrigger className="h-8 w-40 text-xs">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todos</SelectItem>
+              <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="paid">Pagos</SelectItem>
               <SelectItem value="pending">Pendentes</SelectItem>
             </SelectContent>
