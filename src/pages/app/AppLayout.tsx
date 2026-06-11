@@ -293,14 +293,14 @@ export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
-  const { isActive } = usePlan()
+  const { isActive, loading: planLoading } = usePlan()
 
-  // Paywall: conta inativa → forçar /app/configuracoes
+  // Paywall: conta inativa → forçar /app/configuracoes (só após carregar)
   useEffect(() => {
-    if (!isActive && location.pathname !== '/app/configuracoes') {
+    if (!planLoading && !isActive && location.pathname !== '/app/configuracoes') {
       navigate('/app/configuracoes', { replace: true })
     }
-  }, [isActive, location.pathname, navigate])
+  }, [planLoading, isActive, location.pathname, navigate])
 
   return (
     <div className="flex h-screen overflow-hidden">

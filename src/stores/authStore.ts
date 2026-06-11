@@ -62,7 +62,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
 
-      set({ session, user: session.user })
+      // loading: true enquanto busca profile e org — evita redirect prematuro no ProtectedRoute
+      set({ session, user: session.user, loading: true })
 
       Promise.all([
         getProfile(session.user.id),

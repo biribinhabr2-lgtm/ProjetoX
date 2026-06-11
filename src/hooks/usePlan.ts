@@ -9,15 +9,18 @@ interface UsePlanResult {
   isTrial: boolean
   trialDaysLeft: number
   isActive: boolean
+  loading: boolean
   can: (feature: PlanFeature) => boolean
 }
 
 export function usePlan(): UsePlanResult {
   const organization = useAuthStore((s) => s.organization)
+  const loading = useAuthStore((s) => s.loading)
 
   return useMemo(() => {
-    if (!organization) {
-      return { plan: 'trial', isTrial: true, trialDaysLeft: 0, isActive: false, can: () => false }
+    // Enquanto carregando, não sabemos o plano — tratar como ativo para evitar redirect prematuro
+    if (loading || !organization) {
+      return { plan: 'trial', isTrial: true, trialDaysLeft: 14, isActive: true, loading, can: () => false }
     }
 
     const { plan, trial_ends_at, subscription_status } = organization
@@ -40,6 +43,6 @@ export function usePlan(): UsePlanResult {
       return true
     }
 
-    return { plan, isTrial, trialDaysLeft, isActive, can }
-  }, [organization])
+    return { plan, isTrial, trialDaysLeft, isActive, loading, can }
+  }, [organization, loading])
 }
