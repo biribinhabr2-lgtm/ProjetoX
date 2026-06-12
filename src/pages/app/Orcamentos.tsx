@@ -31,10 +31,11 @@ import {
   listQuotes, createQuote, updateQuote, removeQuote,
 } from '@/services/quotes'
 import { createEvent } from '@/services/events'
+import { listCatalogItems } from '@/services/catalog'
 import { useCustomers } from '@/hooks/useCustomers'
 import { usePackages } from '@/hooks/usePackages'
 import { useAuthStore } from '@/stores/authStore'
-import type { QuoteStatus, QuoteWithCustomer } from '@/types/database'
+import type { QuoteStatus, QuoteWithCustomer, CatalogItem } from '@/types/database'
 
 const fmtBRL = (cents: number | null) =>
   cents != null
@@ -214,6 +215,8 @@ export default function Orcamentos() {
   const [convertQuote, setConvertQuote] = useState<QuoteWithCustomer | null>(null)
   const [eventDialogOpen, setEventDialogOpen] = useState(false)
 
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([])
+
   const { customers, addCustomer } = useCustomers(orgId)
   const { packages } = usePackages(orgId)
 
@@ -232,6 +235,12 @@ export default function Orcamentos() {
   }, [orgId, search, statusFilter])
 
   useEffect(() => { void loadQuotes() }, [loadQuotes])
+
+  // Catálogo: carrega uma vez ao montar (activeOnly = true)
+  useEffect(() => {
+    if (!orgId) return
+    void listCatalogItems(orgId, true).then(setCatalogItems).catch(() => void 0)
+  }, [orgId])
 
   // ── CRUD ────────────────────────────────────────────────────
   function openCreate() {
@@ -467,6 +476,7 @@ export default function Orcamentos() {
             onSubmit={handleFormSubmit}
             onCancel={() => { setFormOpen(false); setEditingQuote(null) }}
             onAddCustomer={addCustomer}
+            catalogItems={catalogItems}
             submitLabel={editingQuote ? 'Salvar alterações' : 'Criar orçamento'}
           />
         </DialogContent>

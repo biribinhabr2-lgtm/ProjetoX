@@ -53,6 +53,13 @@ Centralizado em `src/lib/constants.ts` (`SUPPORT_WHATSAPP`, `SUPPORT_WHATSAPP_DI
 - Dark mode (decidido adiar; tokens já preparados para extensão futura)
 - Code-splitting das rotas (bundle > 500 kB — tarefas futuras)
 
+### Catálogo
+- Rota: `/app/catalogo` (página própria — dado operacional, não configuração)
+- `src/services/catalog.ts` — list, create, update, toggleActive, remove, swapCatalogOrder
+- `src/components/orcamentos/CatalogPanel.tsx` — painel colapsável no QuoteForm para inserção 1-clique
+- Clique repetido no `[+]` incrementa qtd da linha existente em vez de duplicar
+- Seed de 6 itens de exemplo disponível no empty state
+
 ## Schema do banco (resumo)
 10 tabelas Postgres com RLS multi-tenant:
 - **organizations** — conta/empresa (planos: trial/essencial/profissional/rede)
@@ -65,6 +72,7 @@ Centralizado em `src/lib/constants.ts` (`SUPPORT_WHATSAPP`, `SUPPORT_WHATSAPP_DI
 - **transactions** — financeiro (receita/despesa), valores em centavos
 - **audit_log** — trilha de auditoria
 - **api_keys** — chaves de API para integração externa (key_hash SHA-256, nunca texto puro)
+- **catalog_items** — produtos/serviços reutilizáveis por org (name, price_cents, unit, category, active, sort_order)
 Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
 

@@ -10,15 +10,16 @@ import { useEffect, useState } from 'react'
 import { useForm, useFieldArray, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Loader2, BookOpen, ChevronDown, ChevronUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { CustomerCombobox } from '@/components/agenda/CustomerCombobox'
 import { NewCustomerDialog } from '@/components/agenda/NewCustomerDialog'
+import { CatalogPanel } from '@/components/orcamentos/CatalogPanel'
 import { cn } from '@/lib/utils'
-import type { Customer, QuoteWithCustomer } from '@/types/database'
+import type { Customer, QuoteWithCustomer, CatalogItem } from '@/types/database'
 
 const fmtBRL = (cents: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100)
@@ -162,6 +163,7 @@ interface QuoteFormProps {
   customers:      Customer[]
   orgId:          string
   saving:         boolean
+  catalogItems?:  CatalogItem[]
   onSubmit:       (payload: QuoteFormPayload) => Promise<void>
   onCancel:       () => void
   onAddCustomer:  (payload: { org_id: string; name: string; phone?: string; child_name?: string }) => Promise<Customer>
@@ -174,12 +176,14 @@ export function QuoteForm({
   customers,
   orgId,
   saving,
+  catalogItems = [],
   onSubmit,
   onCancel,
   onAddCustomer,
   submitLabel = 'Criar orçamento',
 }: QuoteFormProps) {
   const [newCustomerOpen, setNewCustomerOpen] = useState(false)
+  const [catalogOpen, setCatalogOpen]         = useState(false)
 
   // Cast necessário: z.coerce.number() produz tipo unknown no resolver — mesmo padrão do EventDialog
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,7 +194,7 @@ export function QuoteForm({
     formState: { errors },
   } = useForm<FormData>({ resolver, defaultValues: buildDefaults(defaultValues) })
 
-  const { fields, append, remove } = useFieldArray({ control, name: 'items' })
+  const { fields, append, remove, update } = useFieldArray({ control, name: 'items' })
 
   // Reset ao trocar de orçamento editado
   useEffect(() => {
@@ -201,10 +205,35 @@ export function QuoteForm({
 
   // Total calculado em centavos
   const totalCents = itemsWatch.reduce((acc, item) => {
-    const qty   = Number(item.quantity)   || 0
+    const qty   = Number(item.quantity)        || 0
     const price = Number(item.unit_price_reais) || 0
     return acc + Math.round(qty * price * 100)
   }, 0)
+
+  // ── Inserção a partir do catálogo ─────────────────────────
+  // Clique repetido no [+] incrementa a quantidade da linha existente.
+  function handleCatalogInsert(catalogItem: CatalogItem) {
+    const existingIdx = itemsWatch.findIndex(
+      (row) => row.description === catalogItem.name,
+    )
+
+    if (existingIdx >= 0) {
+      // Incrementa quantidade da linha já existente
+      const current = itemsWatch[existingIdx]
+      update(existingIdx, {
+        description:      current.description,
+        quantity:         (Number(current.quantity) || 1) + 1,
+        unit_price_reais: Number(current.unit_price_reais),
+      })
+    } else {
+      // Insere nova linha com dados do catálogo (editável manualmente após inserida)
+      append({
+        description:      catalogItem.name,
+        quantity:         1,
+        unit_price_reais: catalogItem.price_cents / 100,
+      })
+    }
+  }
 
   async function handleFormSubmit(data: FormData) {
     const items = data.items.map((item) => {
@@ -294,16 +323,45 @@ export function QuoteForm({
           ))}
         </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="mt-2 gap-1.5 self-start"
-          onClick={() => append({ description: '', quantity: 1, unit_price_reais: 0 })}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Adicionar item
-        </Button>
+        {/* Botões de adição */}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => append({ description: '', quantity: 1, unit_price_reais: 0 })}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Adicionar item
+          </Button>
+
+          {catalogItems.length > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-muted-foreground hover:text-foreground"
+              onClick={() => setCatalogOpen((v) => !v)}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              Inserir do catálogo
+              {catalogOpen
+                ? <ChevronUp className="h-3 w-3" />
+                : <ChevronDown className="h-3 w-3" />}
+            </Button>
+          )}
+        </div>
+
+        {/* Painel do catálogo — colapsável */}
+        {catalogOpen && (
+          <div
+            className="mt-2 rounded-lg border p-3"
+            style={{ background: 'var(--color-background)' }}
+          >
+            <CatalogPanel items={catalogItems} onInsert={handleCatalogInsert} />
+          </div>
+        )}
 
         {/* Total */}
         <div className={cn('mt-4 flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-3')}>

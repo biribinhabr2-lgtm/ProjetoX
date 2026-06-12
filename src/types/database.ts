@@ -130,6 +130,21 @@ export interface Transaction {
   payment_method: string | null
 }
 
+export type CatalogUnit = 'un' | 'hora' | 'pessoa' | 'pacote'
+
+export interface CatalogItem {
+  id:          string
+  created_at:  string
+  org_id:      string
+  name:        string
+  description: string | null
+  price_cents: number
+  unit:        CatalogUnit
+  category:    string | null
+  active:      boolean
+  sort_order:  number
+}
+
 export interface ApiKey {
   id:           string
   created_at:   string
