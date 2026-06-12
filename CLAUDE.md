@@ -118,6 +118,36 @@ RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, ac
 - Vincular `event_id` no quote após "Converter em festa"
 - Relatório financeiro PDF / exportação CSV
 
+### 2026-06-12 — Painel de Super Admin (platform admin)
+**Feito nesta etapa:**
+- `supabase/migrations/0009_platform_admins.sql` — tabela `platform_admins` (user_id PK); RLS ativo sem políticas públicas (bloqueio total a acesso direto); `is_platform_admin()` SECURITY DEFINER STABLE (única forma de checar status); políticas SELECT admin em 6 tabelas: organizations, memberships, events, transactions, api_keys, audit_log; RPC `admin_set_org_plan(p_org_id, p_plan, p_status, p_trial_end)` SECURITY DEFINER que valida `is_platform_admin()` e grava audit_log
+- **REGRA CRÍTICA**: status de admin verificado APENAS via `is_platform_admin()` no banco (SECURITY DEFINER), NUNCA por e-mail no frontend
+- `src/globals.d.ts` — declara `__APP_VERSION__: string` (injetado pelo Vite)
+- `vite.config.ts` — `define: { __APP_VERSION__ }` lido via `readFileSync('./package.json')`, `test.environment: 'node'`
+- `src/stores/adminStore.ts` — Zustand: `isPlatformAdmin: boolean | null`, `simulatedPlan: string | null`
+- `src/hooks/useIsPlatformAdmin.ts` — chama `supabase.rpc('is_platform_admin')` uma vez por sessão (cached em adminStore)
+- `src/services/admin.ts` — `listAllOrgs`, `getEventsCountByOrg`, `getAdminMetrics`, `getAdminAuditLog`, `adminSetOrgPlan`
+- `src/hooks/usePlan.ts` — adicionado `isSimulating: boolean`; override `effectivePlan` via `adminStore.simulatedPlan` **apenas quando `isPlatformAdmin === true`** (proteção extra client-side)
+- `src/pages/app/Admin.tsx` — 3 tabs: Organizações (tabela + `ChangePlanDialog`), Métricas (StatBox + byPlan + audit log recente), Debug (session info + `__APP_VERSION__` + env + simulador de plano + limpar cache + audit log da org)
+- `src/pages/app/AppLayout.tsx` — `SimulationBanner` (faixa vermelha MODO SIMULAÇÃO); `Sidebar` constrói navItems dinamicamente adicionando "Admin" (Shield) apenas quando `isPlatformAdmin === true`
+- `src/App.tsx` — rota `admin` adicionada dentro do ProtectedRoute
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**⚠️ Ação manual necessária:**
+1. Executar `supabase/migrations/0009_platform_admins.sql` no SQL Editor do Supabase
+2. Dentro do SQL Editor, executar o INSERT comentado na migração para promover `biribinhabr2@gmail.com`:
+   ```sql
+   INSERT INTO platform_admins (user_id)
+   SELECT id FROM auth.users WHERE email = 'biribinhabr2@gmail.com';
+   ```
+
+**Relatório de segurança:**
+- Nenhum e-mail hardcoded no código do frontend ✓
+- `is_platform_admin()` SECURITY DEFINER — acessa `platform_admins` sem RLS ✓
+- `platform_admins` tem RLS ativo sem políticas = inacessível diretamente por qualquer role ✓
+- `admin_set_org_plan` valida `is_platform_admin()` no banco antes de qualquer escrita ✓
+- Simulador de plano protegido por `isPlatformAdmin === true` — usuário comum não pode ativar ✓
+
 ### 2026-06-12 — Escala de Funcionários
 **Feito nesta etapa:**
 - `supabase/migrations/0007_staff.sql` — tabelas `staff_members` (id, org_id, name, phone, role, hourly_rate_cents, active, notes) e `event_staff` (id, org_id, event_id→cascade, staff_id→cascade, start_time, end_time, role_in_event, confirmed, unique(event_id,staff_id)); RLS padrão por org_id em ambas; índices por org+event e org+staff.

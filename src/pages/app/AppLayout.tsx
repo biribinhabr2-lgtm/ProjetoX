@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Users2,
   ClipboardList,
+  Shield,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -27,10 +28,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAuthStore } from '@/stores/authStore'
+import { useAdminStore } from '@/stores/adminStore'
 import { signOut } from '@/services/auth'
 import { usePlan } from '@/hooks/usePlan'
+import { useIsPlatformAdmin } from '@/hooks/useIsPlatformAdmin'
 
-const navItems = [
+const BASE_NAV_ITEMS = [
   { to: '/app/agenda',        label: 'Agenda',        icon: Calendar      },
   { to: '/app/clientes',      label: 'Clientes',      icon: Users         },
   { to: '/app/orcamentos',    label: 'Orçamentos',    icon: FileText      },
@@ -140,13 +143,43 @@ function TrialBanner() {
   )
 }
 
+// ─── SimulationBanner ────────────────────────────────────────
+function SimulationBanner() {
+  const simulatedPlan    = useAdminStore((s) => s.simulatedPlan)
+  const setSimulatedPlan = useAdminStore((s) => s.setSimulatedPlan)
+  const isPlatformAdmin  = useIsPlatformAdmin()
+
+  if (!isPlatformAdmin || !simulatedPlan) return null
+
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-4 px-4 py-2 text-sm font-medium text-white"
+      style={{ background: '#DC2626' }}>
+      <span className="flex items-center gap-2">
+        <Shield className="h-4 w-4 shrink-0" />
+        MODO SIMULAÇÃO — plano {simulatedPlan.toUpperCase()}
+      </span>
+      <button
+        onClick={() => setSimulatedPlan(null)}
+        className="shrink-0 rounded-md border border-white/30 px-3 py-1 text-xs font-semibold transition-opacity hover:opacity-80"
+      >
+        Parar
+      </button>
+    </div>
+  )
+}
+
 // ─── Sidebar ────────────────────────────────────────────────
 interface SidebarProps {
   onClose?: () => void
 }
 
 function Sidebar({ onClose }: SidebarProps) {
-  const organization = useAuthStore((s) => s.organization)
+  const organization    = useAuthStore((s) => s.organization)
+  const isPlatformAdmin = useIsPlatformAdmin()
+
+  const navItems = isPlatformAdmin
+    ? [...BASE_NAV_ITEMS, { to: '/app/admin', label: 'Admin', icon: Shield }]
+    : BASE_NAV_ITEMS
 
   return (
     <div
@@ -366,6 +399,8 @@ export default function AppLayout() {
 
         {/* Banner de trial */}
         <TrialBanner />
+        {/* Banner de simulação (admin) */}
+        <SimulationBanner />
 
         {/* Conteúdo */}
         <main className="flex-1 overflow-auto bg-background p-5 md:p-6">

@@ -19,6 +19,7 @@ import Indique from '@/pages/app/Indique'
 import Catalogo from '@/pages/app/Catalogo'
 import Equipe from '@/pages/app/Equipe'
 import Escala from '@/pages/app/Escala'
+import Admin from '@/pages/app/Admin'
 import OrcamentoPublico from '@/pages/OrcamentoPublico'
 import Termos from '@/pages/Termos'
 import Privacidade from '@/pages/Privacidade'
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="escala" element={<Escala />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="indique" element={<Indique />} />
+          <Route path="admin" element={<Admin />} />
         </Route>
       </Routes>
       <Toaster richColors position="top-right" />
