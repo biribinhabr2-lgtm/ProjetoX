@@ -131,7 +131,7 @@ function renderBoasVindas(d: Record<string, string>): string {
 ${ctaButton(`${BASE_URL}/app/agenda`, 'Acessar minha conta')}
 
 <p style="margin:28px 0 0;font-size:13px;color:#9CA3AF;line-height:1.5;">
-  Qualquer dúvida, responda este e-mail ou fale pelo WhatsApp. Estamos aqui para ajudar! 🎈
+  Qualquer dúvida, responda este e-mail ou fale pelo <a href="https://wa.me/5522997385987" style="color:#E8462A;">WhatsApp</a>. Estamos aqui para ajudar! 🎈
 </p>`
 
   return emailWrapper(`Bem-vindo ao FestaHub, ${name}!`, body)
@@ -236,7 +236,7 @@ async function sendViaResend(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'FestaHub <noreply@festahub.com.br>',
+      from: 'FestaHub <onboarding@resend.dev>',
       to: [to],
       subject,
       html,

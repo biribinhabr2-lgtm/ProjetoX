@@ -5,6 +5,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { supportWhatsAppLink } from '@/lib/constants'
 import {
   Calendar, FileText, DollarSign, Gift,
   CheckCircle2, ChevronDown, Phone, Mail,
@@ -1107,7 +1108,7 @@ function Footer() {
             </p>
             <div className="mt-5 flex items-center gap-4">
               <a
-                href="https://wa.me/5511999999999"
+                href={supportWhatsAppLink('Olá! Gostaria de saber mais sobre o FestaHub.')}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 text-sm text-white/50 transition-colors hover:text-white"
