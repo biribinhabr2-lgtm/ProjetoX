@@ -31,9 +31,10 @@ export function usePlan(): UsePlanResult {
       ? Math.max(0, differenceInDays(parseISO(trial_ends_at), new Date()))
       : 0
 
+    // 'pending' = pagamento iniciado mas aguardando webhook do MP — não bloquear acesso
     const isActive = isTrial
       ? trialDaysLeft > 0
-      : subscription_status === 'active'
+      : subscription_status === 'active' || subscription_status === 'pending'
 
     function can(feature: PlanFeature): boolean {
       if (!isActive) return false

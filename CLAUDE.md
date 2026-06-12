@@ -6,6 +6,7 @@ SaaS multi-tenant de gestão para buffets infantis e brinquedotecas no Brasil. R
 ## Lições aprendidas (bugs já corrigidos — nunca repetir)
 - **EventDialog como delegador puro**: o `EventDialog` nunca persiste dados sozinho — ele apenas coleta o formulário e chama o `onSave` callback do pai. Toda página que abre um `EventDialog` PRECISA chamar `createEvent` (ou `addEvent`) explicitamente no handler `onSave`. Deixar `void payload` ou ignorar o callback = evento nunca criado no banco.
 - **Edge Functions com secrets obrigatórios**: funções que dependem de `APP_URL`, `MP_ACCESS_TOKEN` ou similar retornam 500 silenciosamente se os secrets não estiverem setados. Sempre documentar e checar os secrets necessários antes de testar em produção (ver DEPLOY.md checklist).
+- **Status 'pending' não pode bloquear navegação**: quando o usuário inicia uma assinatura, a Edge Function `create-subscription` muda `plan` para o plano escolhido e `subscription_status` para `'pending'` antes do pagamento ser confirmado. O `usePlan` precisa tratar `'pending'` como provisionalmente ativo (`isActive = true`) para não bloquear o usuário de navegar enquanto o pagamento é processado. Só `'inactive'` e `'cancelled'` devem barrar o acesso.
 
 ## Regras INEGOCIÁVEIS de código
 1. TypeScript estrito. Proibido `any` sem justificativa em comentário.
