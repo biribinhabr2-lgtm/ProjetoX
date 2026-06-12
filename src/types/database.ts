@@ -36,6 +36,8 @@ export interface Organization {
   subscription_status: string
   logo_url: string | null
   referred_by: string | null
+  address: string | null
+  staff_message_template: string | null
 }
 
 export interface Profile {

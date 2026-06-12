@@ -53,6 +53,7 @@ export interface UpdateOrgPayload {
   name: string
   city: string
   phone: string
+  address?: string | null
 }
 
 /** Atualiza dados da organização do usuário. */
@@ -62,7 +63,25 @@ export async function updateOrg(
 ): Promise<void> {
   const { error } = await supabase
     .from('organizations')
-    .update({ name: payload.name, city: payload.city, phone: payload.phone })
+    .update({
+      name:    payload.name,
+      city:    payload.city,
+      phone:   payload.phone,
+      address: payload.address ?? null,
+    })
+    .eq('id', orgId)
+
+  if (error) throw error
+}
+
+/** Salva o template de mensagem de escala da organização. */
+export async function updateStaffMessageTemplate(
+  orgId: string,
+  template: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('organizations')
+    .update({ staff_message_template: template })
     .eq('id', orgId)
 
   if (error) throw error

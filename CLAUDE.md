@@ -88,6 +88,36 @@ RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, ac
 - **Documentação completa**: `docs/API.md`
 - **migration**: `0005_api_keys.sql`
 
+### 2026-06-12 — Mensagem de Escala via WhatsApp com Template Customizável
+**Feito nesta etapa:**
+- `supabase/migrations/0008_message_templates.sql` — `ALTER TABLE organizations ADD COLUMN address text, ADD COLUMN staff_message_template text DEFAULT '...'`
+- `src/types/database.ts` — adicionado `address: string | null` e `staff_message_template: string | null` a `Organization`
+- `src/services/orgs.ts` — `updateOrg` agora inclui `address`; nova função `updateStaffMessageTemplate(orgId, template)`
+- `src/lib/messageTemplate.ts` — funções puras (zero dependências React/Supabase): `renderTemplate`, `calcDuracao`, `formatDateBR`, `buildWhatsAppLink`, `renderMultiAllocMessage`, `buildExampleData`; constantes `DEFAULT_TEMPLATE`, `TEMPLATE_VARIABLES`
+- `src/lib/messageTemplate.test.ts` — 19 testes vitest cobrindo: template padrão completo, placeholder desconhecido → '', campo vazio → '', emojis, quebras de linha, encodeURIComponent, acentos, %0A, multi-evento
+- `package.json` — adicionado script `"test": "vitest run"`; vitest instalado como devDependency
+- `vite.config.ts` — adicionado bloco `test: { environment: 'node' }` para vitest
+- `src/components/agenda/StaffSection.tsx` — `AllocChip` recebe `waHref` computado via `renderTemplate`; `StaffSection` lê `organization` do authStore (template + local); props extras: `eventTitle`, `eventStartTime`, `eventEndTime`
+- `src/components/agenda/EventDialog.tsx` — passa `eventTitle/Start/EndTime` para `StaffSection`
+- `src/pages/app/Escala.tsx` — `AllocCard` e `StaffDayCard` usam template para gerar links WA; `TemplateCtx` passado como prop; botão "Enviar escala do dia" (aba "Por funcionário") → `BulkSendDialog` lista staff com telefone + links clicáveis marcados como "enviado"; funcionário sem telefone → botão desabilitado com tooltip
+- `src/pages/app/Configuracoes.tsx` — aba "Mensagens": textarea com editor de template, chips de variáveis clicáveis (inserção na posição do cursor via `selectionStart`), preview ao vivo com dados de exemplo, botão "Restaurar padrão"; campo `address` adicionado à aba Geral do buffet
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓ | `npm test` → 19/19 ✓
+
+**⚠️ Ação manual necessária:**
+- Executar `supabase/migrations/0008_message_templates.sql` no SQL Editor do Supabase
+
+**Fluxo completo:**
+1. `/app/configuracoes` → aba Geral → preencher `Endereço` (popula `{local}`)
+2. `/app/configuracoes` → aba Mensagens → editar template, clicar variáveis, ver preview → Salvar
+3. `/app/agenda` → editar festa → seção "Equipe escalada" → ícone telefone de cada funcionário → abre WhatsApp com mensagem renderizada
+4. `/app/escala` → tab "Por festa" → ícone telefone de cada alocação → WA com template
+5. `/app/escala` → tab "Por funcionário" → "Enviar escala do dia" → dialog com links por funcionário, marcando os clicados
+
+**Próximas tarefas sugeridas:**
+- Code-splitting das rotas (bundle > 1,3 MB)
+- Vincular `event_id` no quote após "Converter em festa"
+- Relatório financeiro PDF / exportação CSV
+
 ### 2026-06-12 — Escala de Funcionários
 **Feito nesta etapa:**
 - `supabase/migrations/0007_staff.sql` — tabelas `staff_members` (id, org_id, name, phone, role, hourly_rate_cents, active, notes) e `event_staff` (id, org_id, event_id→cascade, staff_id→cascade, start_time, end_time, role_in_event, confirmed, unique(event_id,staff_id)); RLS padrão por org_id em ambas; índices por org+event e org+staff.

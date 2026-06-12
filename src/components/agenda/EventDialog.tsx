@@ -461,6 +461,9 @@ export function EventDialog({
                 orgId={orgId}
                 eventId={event.id}
                 eventDate={event.date}
+                eventTitle={event.title}
+                eventStartTime={event.start_time}
+                eventEndTime={event.end_time}
               />
             )}
 

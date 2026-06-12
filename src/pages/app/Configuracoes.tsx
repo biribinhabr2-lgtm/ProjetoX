@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -19,6 +19,8 @@ import {
   Terminal,
   Shield,
   Clock,
+  MessageSquare,
+  RotateCcw,
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,19 +28,26 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog, DialogContent, DialogDescription,
   DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAuthStore } from '@/stores/authStore'
-import { updateOrg } from '@/services/orgs'
+import { updateOrg, updateStaffMessageTemplate } from '@/services/orgs'
 import { startSubscription, PLANS } from '@/services/billing'
 import type { BillingPlan } from '@/services/billing'
 import { listApiKeys, createApiKey, revokeApiKey } from '@/services/apiKeys'
 import type { ApiKey } from '@/services/apiKeys'
 import { usePlan } from '@/hooks/usePlan'
 import { trackCliqueAssinar, trackAssinaturaConcluida } from '@/lib/analytics'
+import {
+  DEFAULT_TEMPLATE,
+  TEMPLATE_VARIABLES,
+  renderTemplate,
+  buildExampleData,
+} from '@/lib/messageTemplate'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -64,12 +73,13 @@ function fmtDate(iso: string | null): string {
 // ─── schema ─────────────────────────────────────────────────────────────────
 
 const orgSchema = z.object({
-  name:  z.string().min(2, 'Nome muito curto'),
-  city:  z.string().min(2, 'Cidade obrigatória'),
-  phone: z.string().min(10, 'Telefone inválido'),
+  name:    z.string().min(2, 'Nome muito curto'),
+  city:    z.string().min(2, 'Cidade obrigatória'),
+  phone:   z.string().min(10, 'Telefone inválido'),
+  address: z.string().optional(),
 })
 
-type FormData = z.infer<typeof orgSchema>
+type OrgFormData = z.infer<typeof orgSchema>
 
 // ─── OrgForm ────────────────────────────────────────────────────────────────
 
@@ -77,23 +87,25 @@ function OrgForm() {
   const { organization, refreshOrg } = useAuthStore()
   const [saving, setSaving] = useState(false)
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<OrgFormData>({
     resolver: zodResolver(orgSchema),
     defaultValues: {
-      name:  organization?.name  ?? '',
-      city:  organization?.city  ?? '',
-      phone: organization?.phone ? maskPhone(organization.phone) : '',
+      name:    organization?.name    ?? '',
+      city:    organization?.city    ?? '',
+      phone:   organization?.phone ? maskPhone(organization.phone) : '',
+      address: organization?.address ?? '',
     },
   })
 
-  async function onSubmit(data: FormData) {
+  async function onSubmit(data: OrgFormData) {
     if (!organization) return
     setSaving(true)
     try {
       await updateOrg(organization.id, {
-        name:  data.name,
-        city:  data.city,
-        phone: data.phone.replace(/\D/g, ''),
+        name:    data.name,
+        city:    data.city,
+        phone:   data.phone.replace(/\D/g, ''),
+        address: data.address?.trim() || null,
       })
       await refreshOrg()
       toast.success('Dados atualizados com sucesso!')
@@ -115,6 +127,10 @@ function OrgForm() {
         <Label htmlFor="org-city">Cidade</Label>
         <Input id="org-city" {...register('city')} />
         {errors.city && <p className="text-xs text-destructive">{errors.city.message}</p>}
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="org-address">Endereço (usado em {'{local}'} das mensagens)</Label>
+        <Input id="org-address" placeholder="Rua das Flores 123, Bairro…" {...register('address')} />
       </div>
       <div className="space-y-1.5">
         <Label htmlFor="org-phone">Telefone</Label>
@@ -680,6 +696,126 @@ function ApiDocBlock({ title, code }: ApiDocBlockProps) {
   )
 }
 
+// ─── MessagesSection ─────────────────────────────────────────────────────────
+
+function MessagesSection() {
+  const { organization, refreshOrg } = useAuthStore()
+  const [template, setTemplate] = useState(
+    organization?.staff_message_template ?? DEFAULT_TEMPLATE,
+  )
+  const [saving, setSaving] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const exampleData = buildExampleData()
+  const preview = renderTemplate(template, exampleData)
+
+  function insertVariable(key: string) {
+    const ta = textareaRef.current
+    if (!ta) {
+      setTemplate((t) => t + `{${key}}`)
+      return
+    }
+    const start = ta.selectionStart
+    const end   = ta.selectionEnd
+    const next  = template.slice(0, start) + `{${key}}` + template.slice(end)
+    setTemplate(next)
+    // Restaura cursor após a variável inserida
+    requestAnimationFrame(() => {
+      ta.focus()
+      const pos = start + key.length + 2
+      ta.setSelectionRange(pos, pos)
+    })
+  }
+
+  async function handleSave() {
+    if (!organization) return
+    setSaving(true)
+    try {
+      await updateStaffMessageTemplate(organization.id, template)
+      await refreshOrg()
+      toast.success('Template salvo!')
+    } catch {
+      toast.error('Erro ao salvar template.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleRestore() {
+    setTemplate(DEFAULT_TEMPLATE)
+    toast.info('Template restaurado para o padrão.')
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Variáveis disponíveis */}
+      <div>
+        <p className="mb-2 text-sm font-medium">
+          Variáveis disponíveis{' '}
+          <span className="text-muted-foreground font-normal">(clique para inserir na posição do cursor)</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {TEMPLATE_VARIABLES.map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              onClick={() => insertVariable(v.key)}
+              className="rounded-full border bg-muted/60 px-2.5 py-1 text-xs font-mono transition-colors hover:bg-muted"
+              title={v.label}
+            >
+              {`{${v.key}}`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Editor + preview */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Editor */}
+        <div className="space-y-2">
+          <Label htmlFor="msg-template">Mensagem de escala</Label>
+          <Textarea
+            id="msg-template"
+            ref={textareaRef}
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+            className="min-h-[200px] resize-y font-mono text-sm"
+            placeholder={DEFAULT_TEMPLATE}
+          />
+        </div>
+
+        {/* Preview */}
+        <div className="space-y-2">
+          <Label>Preview (dados de exemplo)</Label>
+          <div
+            className="min-h-[200px] whitespace-pre-wrap rounded-lg border bg-muted/40 px-4 py-3 text-sm leading-relaxed"
+          >
+            {preview || <span className="text-muted-foreground italic">Escreva o template ao lado…</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Ações */}
+      <div className="flex items-center gap-3">
+        <Button size="sm" disabled={saving} onClick={handleSave}>
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving ? 'Salvando…' : 'Salvar template'}
+        </Button>
+        <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" onClick={handleRestore}>
+          <RotateCcw className="h-3.5 w-3.5" />
+          Restaurar padrão
+        </Button>
+      </div>
+
+      {/* Dica */}
+      <p className="text-xs text-muted-foreground">
+        Dica: configure o endereço do buffet na aba <strong>Geral</strong> para que a variável{' '}
+        <code className="rounded bg-muted px-1">{'{local}'}</code> seja preenchida automaticamente.
+      </p>
+    </div>
+  )
+}
+
 // ─── Configuracoes ───────────────────────────────────────────────────────────
 
 export default function Configuracoes() {
@@ -706,6 +842,7 @@ export default function Configuracoes() {
         <TabsList>
           <TabsTrigger value="geral">Geral</TabsTrigger>
           <TabsTrigger value="plano">Plano e cobrança</TabsTrigger>
+          <TabsTrigger value="mensagens">Mensagens</TabsTrigger>
           <TabsTrigger value="api">API</TabsTrigger>
         </TabsList>
 
@@ -738,6 +875,26 @@ export default function Configuracoes() {
             </CardHeader>
             <CardContent>
               <BillingSection />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Aba Mensagens ─────────────────────────────────────────────── */}
+        <TabsContent value="mensagens">
+          <Card className="mt-4">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base" style={{ fontFamily: 'var(--font-display)' }}>
+                  Template de mensagem de escala
+                </CardTitle>
+              </div>
+              <CardDescription>
+                Customize a mensagem enviada por WhatsApp ao notificar funcionários sobre a escala.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <MessagesSection />
             </CardContent>
           </Card>
         </TabsContent>

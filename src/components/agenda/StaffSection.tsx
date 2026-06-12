@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Users, Plus, Trash2, CheckCircle2, Circle, AlertTriangle, Loader2 } from 'lucide-react'
+import { Users, Plus, Trash2, CheckCircle2, Circle, AlertTriangle, Loader2, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -25,6 +25,15 @@ import {
   toggleConfirmed,
   checkStaffConflict,
 } from '@/services/staff'
+import {
+  renderTemplate,
+  renderMultiAllocMessage,
+  buildWhatsAppLink,
+  calcDuracao,
+  formatDateBR,
+  DEFAULT_TEMPLATE,
+} from '@/lib/messageTemplate'
+import { useAuthStore } from '@/stores/authStore'
 import type { StaffMember, EventStaffWithDetails } from '@/types/database'
 
 // ── Labels ────────────────────────────────────────────────────
@@ -48,12 +57,13 @@ type AllocForm = z.infer<typeof allocSchema>
 
 // ── Chip de membro alocado ─────────────────────────────────────
 interface AllocChipProps {
-  alloc: EventStaffWithDetails
-  onRemove: () => void
+  alloc:           EventStaffWithDetails
+  waHref:          string | null
+  onRemove:        () => void
   onToggleConfirm: () => void
 }
 
-function AllocChip({ alloc, onRemove, onToggleConfirm }: AllocChipProps) {
+function AllocChip({ alloc, waHref, onRemove, onToggleConfirm }: AllocChipProps) {
   return (
     <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm">
       <button
@@ -73,10 +83,28 @@ function AllocChip({ alloc, onRemove, onToggleConfirm }: AllocChipProps) {
         {(alloc.role_in_event || alloc.staff_member.role) && (
           <p className="mt-0.5 text-xs text-muted-foreground">
             {alloc.role_in_event || ROLE_LABELS[alloc.staff_member.role ?? ''] || alloc.staff_member.role}
-            {alloc.start_time && alloc.end_time && ` · ${alloc.start_time}–${alloc.end_time}`}
+            {alloc.start_time && alloc.end_time && ` · ${alloc.start_time.slice(0,5)}–${alloc.end_time.slice(0,5)}`}
           </p>
         )}
       </div>
+      {waHref ? (
+        <a
+          href={waHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Enviar escala por WhatsApp"
+          className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-green-600"
+        >
+          <Phone className="h-3.5 w-3.5" />
+        </a>
+      ) : (
+        <span
+          title="Cadastre o telefone do funcionário para enviar pelo WhatsApp"
+          className="shrink-0 rounded p-1 text-muted-foreground opacity-30 cursor-not-allowed"
+        >
+          <Phone className="h-3.5 w-3.5" />
+        </span>
+      )}
       <button
         type="button"
         onClick={onRemove}
@@ -91,21 +119,21 @@ function AllocChip({ alloc, onRemove, onToggleConfirm }: AllocChipProps) {
 
 // ── Dialog de alocação ─────────────────────────────────────────
 interface AddAllocDialogProps {
-  open: boolean
-  orgId: string
-  eventId: string
-  eventDate: string | null
+  open:         boolean
+  orgId:        string
+  eventId:      string
+  eventDate:    string | null
   allocatedIds: Set<string>
-  onClose: () => void
-  onAllocated: (alloc: EventStaffWithDetails) => void
+  onClose:      () => void
+  onAllocated:  (alloc: EventStaffWithDetails) => void
 }
 
 function AddAllocDialog({
   open, orgId, eventId, eventDate, allocatedIds, onClose, onAllocated,
 }: AddAllocDialogProps) {
-  const [members, setMembers]     = useState<StaffMember[]>([])
+  const [members,   setMembers]   = useState<StaffMember[]>([])
   const [conflicts, setConflicts] = useState<EventStaffWithDetails[]>([])
-  const [saving, setSaving]       = useState(false)
+  const [saving,    setSaving]    = useState(false)
 
   const { register, control, handleSubmit, reset, formState: { errors } } = useForm<AllocForm>({
     resolver: zodResolver(allocSchema),
@@ -245,17 +273,75 @@ function AddAllocDialog({
   )
 }
 
+// ── helpers de template ───────────────────────────────────────
+
+function buildAllocWaHref(
+  alloc:          EventStaffWithDetails,
+  template:       string,
+  orgName:        string,
+  local:          string,
+  eventDate:      string | null,
+  eventTitle:     string | null | undefined,
+  eventStartTime: string | null | undefined,
+  eventEndTime:   string | null | undefined,
+): string | null {
+  if (!alloc.staff_member.phone) return null
+  const start = alloc.start_time ?? eventStartTime ?? null
+  const end   = alloc.end_time   ?? eventEndTime   ?? null
+  const data: Record<string, string> = {
+    nome:           alloc.staff_member.name,
+    buffet:         orgName,
+    local,
+    festa:          eventTitle ?? 'Festa',
+    data:           eventDate ? formatDateBR(eventDate) : '',
+    horario_inicio: start?.slice(0, 5) ?? '',
+    horario_fim:    end?.slice(0, 5)   ?? '',
+    duracao:        calcDuracao(start, end),
+    funcao:         alloc.role_in_event ?? alloc.staff_member.role ?? '',
+    observacoes:    '',
+  }
+  const message = renderMultiAllocMessage(template, { nome: data.nome, buffet: data.buffet, local }, [
+    {
+      festa:          data.festa,
+      data:           data.data,
+      horario_inicio: data.horario_inicio,
+      horario_fim:    data.horario_fim,
+      duracao:        data.duracao,
+      funcao:         data.funcao,
+    },
+  ])
+  // renderMultiAllocMessage com 1 evento chama renderTemplate internamente
+  const singleMsg = renderTemplate(template, data)
+  return buildWhatsAppLink(alloc.staff_member.phone, singleMsg)
+}
+
 // ── StaffSection ───────────────────────────────────────────────
 export interface StaffSectionProps {
   orgId:          string
   eventId:        string
   eventDate:      string | null
+  eventTitle?:    string | null
+  eventStartTime?: string | null
+  eventEndTime?:   string | null
 }
 
-export function StaffSection({ orgId, eventId, eventDate }: StaffSectionProps) {
+export function StaffSection({
+  orgId,
+  eventId,
+  eventDate,
+  eventTitle,
+  eventStartTime,
+  eventEndTime,
+}: StaffSectionProps) {
+  const organization  = useAuthStore((s) => s.organization)
   const [allocations, setAllocations] = useState<EventStaffWithDetails[]>([])
   const [addOpen,     setAddOpen]     = useState(false)
   const [loading,     setLoading]     = useState(true)
+
+  const template = organization?.staff_message_template ?? DEFAULT_TEMPLATE
+  const orgName  = organization?.name ?? ''
+  const local    = organization?.address
+    || `${orgName}${organization?.city ? ', ' + organization.city : ''}`
 
   useEffect(() => {
     setLoading(true)
@@ -320,14 +406,21 @@ export function StaffSection({ orgId, eventId, eventDate }: StaffSectionProps) {
         </div>
       ) : (
         <div className="space-y-1.5">
-          {allocations.map((a) => (
-            <AllocChip
-              key={a.id}
-              alloc={a}
-              onRemove={() => handleRemove(a.id)}
-              onToggleConfirm={() => handleToggleConfirm(a)}
-            />
-          ))}
+          {allocations.map((a) => {
+            const waHref = buildAllocWaHref(
+              a, template, orgName, local,
+              eventDate, eventTitle, eventStartTime, eventEndTime,
+            )
+            return (
+              <AllocChip
+                key={a.id}
+                alloc={a}
+                waHref={waHref}
+                onRemove={() => handleRemove(a.id)}
+                onToggleConfirm={() => handleToggleConfirm(a)}
+              />
+            )
+          })}
         </div>
       )}
 
