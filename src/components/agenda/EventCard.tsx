@@ -42,8 +42,9 @@ export function EventCard({
 
   return (
     <div
+      onClick={() => onEdit(event)}
       className={cn(
-        'group relative rounded-xl border bg-card p-4 transition-shadow hover:shadow-md',
+        'group relative rounded-xl border bg-card p-4 transition-shadow hover:shadow-md cursor-pointer',
         className,
       )}
     >
@@ -61,7 +62,8 @@ export function EventCard({
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        {/* stopPropagation: evita que o click no dropdown dispare o onEdit do card */}
+        <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
           <StatusBadge status={event.status} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
