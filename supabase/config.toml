@@ -18,3 +18,12 @@ verify_jwt = false
 # e autenticado (boas-vindas). RESEND_API_KEY fica exclusivamente no servidor.
 [functions.send-email]
 verify_jwt = false
+
+# create-api-key: requer JWT (usuário logado owner/admin)
+[functions.create-api-key]
+verify_jwt = true
+
+# api-v1: autenticação própria via API Key (Bearer fh_live_xxx)
+# O Supabase JWT não é usado — a chave é verificada pelo handler.
+[functions.api-v1]
+verify_jwt = false

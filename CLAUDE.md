@@ -54,7 +54,7 @@ Centralizado em `src/lib/constants.ts` (`SUPPORT_WHATSAPP`, `SUPPORT_WHATSAPP_DI
 - Code-splitting das rotas (bundle > 500 kB — tarefas futuras)
 
 ## Schema do banco (resumo)
-9 tabelas Postgres com RLS multi-tenant:
+10 tabelas Postgres com RLS multi-tenant:
 - **organizations** — conta/empresa (planos: trial/essencial/profissional/rede)
 - **profiles** — espelha auth.users 1:1 (trigger automático no signup)
 - **memberships** — liga user↔org com role (owner/admin/atendente)
@@ -64,8 +64,21 @@ Centralizado em `src/lib/constants.ts` (`SUPPORT_WHATSAPP`, `SUPPORT_WHATSAPP_DI
 - **quotes** — orçamentos com token público UUID para link externo
 - **transactions** — financeiro (receita/despesa), valores em centavos
 - **audit_log** — trilha de auditoria
+- **api_keys** — chaves de API para integração externa (key_hash SHA-256, nunca texto puro)
 Helper `user_org_ids()` SECURITY DEFINER filtra tudo por org do usuário.
 RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, acessível ao role `anon`).
+
+## API externa v1
+- **Endpoint**: `https://mjnjxhtkfmwhzatgpbox.supabase.co/functions/v1/api-v1`
+- **Autenticação**: `Authorization: Bearer fh_live_<chave>` (SHA-256 verificado na EF, nunca armazenado em texto puro)
+- **Formato de chave**: `fh_live_` + 64 chars hex (32 bytes aleatórios via CSPRNG)
+- **Rotas**: `GET/POST /events`, `PATCH /events/:id`, `GET /events/:id`, `GET /customers`
+- **Rate limit**: 60 req/min por chave (memória da EF)
+- **Planos**: API Keys apenas para Profissional e Rede
+- **Segurança crítica**: toda rota filtra explicitamente por `org_id` resolvido da chave — jamais confiar em org_id vindo do payload externo
+- **Geração**: Edge Function `create-api-key` (verify_jwt=true); chave exibida UMA VEZ, nunca recuperável
+- **Documentação completa**: `docs/API.md`
+- **migration**: `0005_api_keys.sql`
 
 ## Estado atual
 ### 2026-06-11 — Landing Page de Conversão

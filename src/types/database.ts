@@ -130,6 +130,17 @@ export interface Transaction {
   payment_method: string | null
 }
 
+export interface ApiKey {
+  id:           string
+  created_at:   string
+  org_id:       string
+  name:         string
+  key_prefix:   string   // primeiros 8 chars do sufixo — para exibição
+  key_hash:     string   // SHA-256 — nunca exibir
+  last_used_at: string | null
+  revoked_at:   string | null
+}
+
 export interface AuditLog {
   id: string
   created_at: string
