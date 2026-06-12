@@ -88,6 +88,33 @@ RPC `get_public_quote(token)` para link público sem login (SECURITY DEFINER, ac
 - **Documentação completa**: `docs/API.md`
 - **migration**: `0005_api_keys.sql`
 
+### 2026-06-12 — Escala de Funcionários
+**Feito nesta etapa:**
+- `supabase/migrations/0007_staff.sql` — tabelas `staff_members` (id, org_id, name, phone, role, hourly_rate_cents, active, notes) e `event_staff` (id, org_id, event_id→cascade, staff_id→cascade, start_time, end_time, role_in_event, confirmed, unique(event_id,staff_id)); RLS padrão por org_id em ambas; índices por org+event e org+staff.
+- `src/types/database.ts` — adicionado `StaffRole`, `StaffMember`, `EventStaff`, `EventStaffWithDetails`
+- `src/services/staff.ts` — `listMembers`, `createMember`, `updateMember`, `toggleActive`, `listAllocationsByEvent`, `allocate`, `updateAllocation`, `removeAllocation`, `toggleConfirmed`, `checkStaffConflict` (busca conflitos em outros eventos do mesmo dia — não bloqueia, só avisa), `listDayView` (dois queries: eventos do dia → alocações com staff_member; retorna `DayViewEvent[]`)
+- `src/components/agenda/StaffSection.tsx` — seção "Equipe escalada" no EventDialog (modo edição): lista alocados com toggle confirmação + remover; `AddAllocDialog` abre dialog para escalar funcionário com campos função/horário; conflito de dia detectado e exibido como aviso após salvar (não bloqueia)
+- `src/components/agenda/EventDialog.tsx` — adicionado `StaffSection` na seção de edição (abaixo de Observações, acima do footer)
+- `src/pages/app/Equipe.tsx` — `/app/equipe`: CRUD completo de funcionários; `StaffRow` com avatar, badge de função colorida, telefone com link WA, toggle ativo, editar; `StaffDialog` (create/edit) com máscara de telefone; filtro por busca + inativos; resumo de ativos/inativos
+- `src/pages/app/Escala.tsx` — `/app/escala`: seletor de data (input[type=date] + prev/next/hoje); `SummaryBar` (nº festas, pessoas, lacunas, não confirmados); tabs "Por festa" (grid de `DayEventCard`) e "Por funcionário" (grid de `StaffDayCard`, com WhatsApp por funcionário); staff com festas aparece primeiro
+- `src/pages/app/AppLayout.tsx` — "Equipe" (Users2) e "Escala" (ClipboardList) adicionados ao nav entre Financeiro e Indicar
+- `src/App.tsx` — rotas `equipe` e `escala` adicionadas
+- `npx tsc --noEmit` → zero erros ✓ | `npm run build` → sucesso ✓
+
+**⚠️ Ação manual necessária:**
+- Executar `supabase/migrations/0007_staff.sql` no SQL Editor do Supabase
+
+**Fluxo completo:**
+1. `/app/equipe` → cadastrar funcionário (nome, função, telefone, valor/hora) → ativo por padrão ✓
+2. `/app/agenda` → abrir festa existente → aba "Equipe escalada" → "+ Escalar" → selecionar funcionário, definir função/horário → salvo ✓
+3. Conflito detectado (mesmo funcionário em outra festa no mesmo dia) → aviso não-bloqueante exibido ✓
+4. `/app/escala` → selecionar data → ver festas do dia com equipe; aba "Por funcionário" → ver agenda de cada membro com WhatsApp direto ✓
+
+**Próximas tarefas sugeridas:**
+- Code-splitting das rotas (bundle > 1,3 MB)
+- Vincular `event_id` no quote após "Converter em festa"
+- Relatório financeiro PDF / exportação CSV
+
 ## Estado atual
 ### 2026-06-11 — Landing Page de Conversão
 **Feito nesta etapa:**

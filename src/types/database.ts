@@ -156,6 +156,36 @@ export interface ApiKey {
   revoked_at:   string | null
 }
 
+export type StaffRole = 'recreador' | 'monitor' | 'cozinha' | 'limpeza' | 'gerente' | 'outro'
+
+export interface StaffMember {
+  id:                string
+  created_at:        string
+  org_id:            string
+  name:              string
+  phone:             string | null
+  role:              StaffRole | null
+  hourly_rate_cents: number | null
+  active:            boolean
+  notes:             string | null
+}
+
+export interface EventStaff {
+  id:            string
+  created_at:    string
+  org_id:        string
+  event_id:      string
+  staff_id:      string
+  start_time:    string | null  // 'HH:MM'
+  end_time:      string | null
+  role_in_event: string | null
+  confirmed:     boolean
+}
+
+export interface EventStaffWithDetails extends EventStaff {
+  staff_member: Pick<StaffMember, 'id' | 'name' | 'phone' | 'role'>
+}
+
 export interface AuditLog {
   id: string
   created_at: string

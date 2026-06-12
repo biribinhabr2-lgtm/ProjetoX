@@ -29,6 +29,7 @@ import {
 import { CustomerCombobox } from '@/components/agenda/CustomerCombobox'
 import { NewCustomerDialog } from '@/components/agenda/NewCustomerDialog'
 import { ConflictWarningDialog } from '@/components/agenda/ConflictWarningDialog'
+import { StaffSection } from '@/components/agenda/StaffSection'
 import { detectConflicts } from '@/services/events'
 import type { Customer, EventWithDetails, Package } from '@/types/database'
 
@@ -453,6 +454,15 @@ export function EventDialog({
               className="min-h-[72px] resize-none"
               {...register('notes')}
             />
+
+            {/* ── Equipe (só edição) ── */}
+            {mode === 'edit' && event && (
+              <StaffSection
+                orgId={orgId}
+                eventId={event.id}
+                eventDate={event.date}
+              />
+            )}
 
             <DialogFooter className="mt-4">
               <Button type="button" variant="outline" onClick={onClose} disabled={saving}>

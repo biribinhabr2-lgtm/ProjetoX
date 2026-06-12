@@ -17,6 +17,8 @@ import Financeiro from '@/pages/app/Financeiro'
 import Configuracoes from '@/pages/app/Configuracoes'
 import Indique from '@/pages/app/Indique'
 import Catalogo from '@/pages/app/Catalogo'
+import Equipe from '@/pages/app/Equipe'
+import Escala from '@/pages/app/Escala'
 import OrcamentoPublico from '@/pages/OrcamentoPublico'
 import Termos from '@/pages/Termos'
 import Privacidade from '@/pages/Privacidade'
@@ -55,6 +57,8 @@ export default function App() {
           <Route path="orcamentos" element={<Orcamentos />} />
           <Route path="financeiro" element={<Financeiro />} />
           <Route path="catalogo" element={<Catalogo />} />
+          <Route path="equipe" element={<Equipe />} />
+          <Route path="escala" element={<Escala />} />
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="indique" element={<Indique />} />
         </Route>

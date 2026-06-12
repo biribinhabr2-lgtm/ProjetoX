@@ -13,6 +13,8 @@ import {
   LogOut,
   ChevronDown,
   AlertTriangle,
+  Users2,
+  ClipboardList,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -29,13 +31,15 @@ import { signOut } from '@/services/auth'
 import { usePlan } from '@/hooks/usePlan'
 
 const navItems = [
-  { to: '/app/agenda',        label: 'Agenda',        icon: Calendar   },
-  { to: '/app/clientes',      label: 'Clientes',      icon: Users      },
-  { to: '/app/orcamentos',    label: 'Orçamentos',    icon: FileText   },
-  { to: '/app/catalogo',      label: 'Catálogo',      icon: Package    },
-  { to: '/app/financeiro',    label: 'Financeiro',    icon: DollarSign },
-  { to: '/app/indique',       label: 'Indicar',       icon: Gift       },
-  { to: '/app/configuracoes', label: 'Configurações', icon: Settings   },
+  { to: '/app/agenda',        label: 'Agenda',        icon: Calendar      },
+  { to: '/app/clientes',      label: 'Clientes',      icon: Users         },
+  { to: '/app/orcamentos',    label: 'Orçamentos',    icon: FileText      },
+  { to: '/app/catalogo',      label: 'Catálogo',      icon: Package       },
+  { to: '/app/financeiro',    label: 'Financeiro',    icon: DollarSign    },
+  { to: '/app/equipe',        label: 'Equipe',        icon: Users2        },
+  { to: '/app/escala',        label: 'Escala',        icon: ClipboardList },
+  { to: '/app/indique',       label: 'Indicar',       icon: Gift          },
+  { to: '/app/configuracoes', label: 'Configurações', icon: Settings      },
 ]
 
 // ─── Logo mark SVG ───────────────────────────────────────────
