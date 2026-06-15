@@ -15,21 +15,39 @@ create table public.event_items (
 
 alter table public.event_items enable row level security;
 
+-- Usa EXISTS em vez de = ANY(srf()) — set-returning functions não são permitidas
+-- diretamente em expressões de policy no PostgreSQL moderno.
 create policy "event_items: select"
   on public.event_items for select
-  using (org_id = any(public.user_org_ids()));
+  using (exists (
+    select 1 from public.memberships
+    where memberships.org_id = event_items.org_id
+      and memberships.user_id = auth.uid()
+  ));
 
 create policy "event_items: insert"
   on public.event_items for insert
-  with check (org_id = any(public.user_org_ids()));
+  with check (exists (
+    select 1 from public.memberships
+    where memberships.org_id = event_items.org_id
+      and memberships.user_id = auth.uid()
+  ));
 
 create policy "event_items: update"
   on public.event_items for update
-  using (org_id = any(public.user_org_ids()));
+  using (exists (
+    select 1 from public.memberships
+    where memberships.org_id = event_items.org_id
+      and memberships.user_id = auth.uid()
+  ));
 
 create policy "event_items: delete"
   on public.event_items for delete
-  using (org_id = any(public.user_org_ids()));
+  using (exists (
+    select 1 from public.memberships
+    where memberships.org_id = event_items.org_id
+      and memberships.user_id = auth.uid()
+  ));
 
 create index on public.event_items (org_id);
 create index on public.event_items (event_id);
