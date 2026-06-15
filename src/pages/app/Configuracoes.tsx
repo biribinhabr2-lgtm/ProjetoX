@@ -21,6 +21,8 @@ import {
   Clock,
   MessageSquare,
   RotateCcw,
+  Users,
+  Lock,
 } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,6 +42,8 @@ import { startSubscription, PLANS } from '@/services/billing'
 import type { BillingPlan } from '@/services/billing'
 import { listApiKeys, createApiKey, revokeApiKey } from '@/services/apiKeys'
 import type { ApiKey } from '@/services/apiKeys'
+import { listOrgMembers } from '@/services/members'
+import type { OrgMember } from '@/services/members'
 import { usePlan } from '@/hooks/usePlan'
 import { trackCliqueAssinar, trackAssinaturaConcluida } from '@/lib/analytics'
 import {
@@ -734,8 +738,12 @@ function MessagesSection() {
       await updateStaffMessageTemplate(organization.id, template)
       await refreshOrg()
       toast.success('Template salvo!')
-    } catch {
-      toast.error('Erro ao salvar template.')
+    } catch (err) {
+      console.error('[template save]', err)
+      const detail = err instanceof Error ? err.message : String(err)
+      toast.error(detail.includes('staff_message_template')
+        ? 'Execute a migração 0008 no Supabase antes de salvar o template.'
+        : `Erro ao salvar template: ${detail}`)
     } finally {
       setSaving(false)
     }
@@ -816,6 +824,92 @@ function MessagesSection() {
   )
 }
 
+// ─── MembersSection ──────────────────────────────────────────────────────────
+
+const ROLE_LABELS: Record<string, string> = {
+  owner:     'Proprietário',
+  admin:     'Admin',
+  atendente: 'Atendente',
+}
+
+function MembersSection() {
+  const organization = useAuthStore((s) => s.organization)
+  const { can, maxMembers, plan } = usePlan()
+  const [members, setMembers]   = useState<OrgMember[]>([])
+  const [loading, setLoading]   = useState(false)
+
+  const hasAccess = can('multi_user')
+
+  const load = useCallback(async () => {
+    if (!organization) return
+    setLoading(true)
+    try { setMembers(await listOrgMembers(organization.id)) }
+    catch { /* silencioso */ }
+    finally { setLoading(false) }
+  }, [organization])
+
+  useEffect(() => { void load() }, [load])
+
+  if (!hasAccess) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed py-10 text-center">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full" style={{ background: 'var(--color-primary-light)' }}>
+          <Lock className="h-6 w-6" style={{ color: 'var(--color-primary)' }} />
+        </span>
+        <div>
+          <p className="font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+            Recurso exclusivo — Profissional e Rede
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Faça upgrade para adicionar colaboradores à sua equipe.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const limitLabel = plan === 'rede' ? 'ilimitados' : `até ${maxMembers}`
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {members.length} membro{members.length !== 1 ? 's' : ''} · {limitLabel}
+        </p>
+        <div className="flex items-center gap-2 rounded-full border bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          Convite de membros em breve
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-6">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      ) : (
+        <div className="divide-y rounded-xl border">
+          {members.map(({ membership, profile }) => (
+            <div key={membership.id} className="flex items-center gap-3 px-4 py-3">
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+                style={{ background: 'var(--color-primary)' }}
+              >
+                {(profile.full_name ?? '?').charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium">{profile.full_name ?? 'Usuário'}</p>
+              </div>
+              <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
+                {ROLE_LABELS[membership.role] ?? membership.role}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Configuracoes ───────────────────────────────────────────────────────────
 
 export default function Configuracoes() {
@@ -842,6 +936,7 @@ export default function Configuracoes() {
         <TabsList>
           <TabsTrigger value="geral">Geral</TabsTrigger>
           <TabsTrigger value="plano">Plano e cobrança</TabsTrigger>
+          <TabsTrigger value="membros">Membros</TabsTrigger>
           <TabsTrigger value="mensagens">Mensagens</TabsTrigger>
           <TabsTrigger value="api">API</TabsTrigger>
         </TabsList>
@@ -875,6 +970,26 @@ export default function Configuracoes() {
             </CardHeader>
             <CardContent>
               <BillingSection />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Aba Membros ───────────────────────────────────────────────── */}
+        <TabsContent value="membros">
+          <Card className="mt-4">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base" style={{ fontFamily: 'var(--font-display)' }}>
+                  Membros da equipe
+                </CardTitle>
+              </div>
+              <CardDescription>
+                Usuários com acesso ao FestaHub da sua organização.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <MembersSection />
             </CardContent>
           </Card>
         </TabsContent>

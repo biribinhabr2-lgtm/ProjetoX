@@ -4,7 +4,7 @@ import { useAdminStore } from '@/stores/adminStore'
 import { differenceInDays, parseISO } from 'date-fns'
 import { useIsPlatformAdmin } from './useIsPlatformAdmin'
 
-export type PlanFeature = 'public_quotes' | 'multiple_units' | 'multi_user'
+export type PlanFeature = 'public_quotes' | 'multiple_units' | 'multi_user' | 'advanced_reports'
 
 interface UsePlanResult {
   plan: string
@@ -13,6 +13,7 @@ interface UsePlanResult {
   isActive: boolean
   loading: boolean
   isSimulating: boolean
+  maxMembers: number
   can: (feature: PlanFeature) => boolean
 }
 
@@ -24,7 +25,7 @@ export function usePlan(): UsePlanResult {
 
   return useMemo(() => {
     if (loading || !organization) {
-      return { plan: 'trial', isTrial: true, trialDaysLeft: 14, isActive: true, loading, isSimulating: false, can: () => false }
+      return { plan: 'trial', isTrial: true, trialDaysLeft: 14, isActive: true, loading, isSimulating: false, maxMembers: 1, can: () => false }
     }
 
     // Override de plano só válido quando o usuário realmente é platform admin
@@ -46,15 +47,18 @@ export function usePlan(): UsePlanResult {
         ? trialDaysLeft > 0
         : subscription_status === 'active' || subscription_status === 'pending'
 
+    const maxMembers = plan === 'rede' ? Infinity : plan === 'profissional' ? 5 : 1
+
     function can(feature: PlanFeature): boolean {
       if (!isActive) return false
       if (feature === 'public_quotes') return plan !== 'essencial' && !isTrial
       if (feature === 'multiple_units') return plan === 'rede'
       if (feature === 'multi_user') return plan === 'profissional' || plan === 'rede'
+      if (feature === 'advanced_reports') return plan === 'profissional' || plan === 'rede'
       return true
     }
 
-    return { plan, isTrial, trialDaysLeft, isActive, loading, isSimulating, can }
+    return { plan, isTrial, trialDaysLeft, isActive, loading, isSimulating, maxMembers, can }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization, loading, simulatedPlan, isPlatformAdmin])
 }

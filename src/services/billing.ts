@@ -22,7 +22,7 @@ export const PLANS: PlanInfo[] = [
   {
     id:           'essencial',
     label:        'Essencial',
-    priceMonthly: 9700,   // R$ 97,00 em centavos
+    priceMonthly: 3990,   // R$ 39,90 em centavos
     features: [
       'Agenda de festas completa',
       'Módulo de clientes + radar de aniversários',
@@ -34,7 +34,7 @@ export const PLANS: PlanInfo[] = [
   {
     id:           'profissional',
     label:        'Profissional',
-    priceMonthly: 19700,  // R$ 197,00 em centavos
+    priceMonthly: 6990,   // R$ 69,90 em centavos
     features: [
       'Tudo do Essencial',
       'Até 5 usuários',
@@ -45,7 +45,7 @@ export const PLANS: PlanInfo[] = [
   {
     id:           'rede',
     label:        'Rede',
-    priceMonthly: 39700,  // R$ 397,00 em centavos
+    priceMonthly: 10990,  // R$ 109,90 em centavos
     features: [
       'Tudo do Profissional',
       'Usuários ilimitados',

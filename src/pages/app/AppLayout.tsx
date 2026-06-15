@@ -16,6 +16,9 @@ import {
   Users2,
   ClipboardList,
   Shield,
+  Camera,
+  HelpCircle,
+  Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -30,8 +33,13 @@ import {
 import { useAuthStore } from '@/stores/authStore'
 import { useAdminStore } from '@/stores/adminStore'
 import { signOut } from '@/services/auth'
+import { updateProfile } from '@/services/profiles'
 import { usePlan } from '@/hooks/usePlan'
 import { useIsPlatformAdmin } from '@/hooks/useIsPlatformAdmin'
+import { supportWhatsAppLink } from '@/lib/constants'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 const BASE_NAV_ITEMS = [
   { to: '/app/agenda',        label: 'Agenda',        icon: Calendar      },
@@ -59,8 +67,17 @@ function LogoMark({ size = 28 }: { size?: number }) {
 }
 
 // ─── Avatar inicial ─────────────────────────────────────────
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, src }: { name: string; src?: string | null }) {
   const initial = name.trim().charAt(0).toUpperCase()
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className="h-7 w-7 shrink-0 rounded-full object-cover"
+      />
+    )
+  }
   return (
     <div
       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
@@ -68,6 +85,64 @@ function Avatar({ name }: { name: string }) {
     >
       {initial}
     </div>
+  )
+}
+
+// ─── PhotoDialog ─────────────────────────────────────────────
+function PhotoDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { profile, user } = useAuthStore()
+  const [url, setUrl]       = useState(profile?.avatar_url ?? '')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!user) return
+    setSaving(true)
+    try {
+      await updateProfile(user.id, { avatar_url: url.trim() || null })
+      // Atualiza store localmente sem re-fetch completo
+      useAuthStore.setState((s) => ({
+        profile: s.profile ? { ...s.profile, avatar_url: url.trim() || null } : null,
+      }))
+      toast.success('Foto atualizada!')
+      onClose()
+    } catch {
+      toast.error('Erro ao salvar foto.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle style={{ fontFamily: 'var(--font-display)' }}>Foto de perfil</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          {url && (
+            <div className="flex justify-center">
+              <img src={url} alt="preview" className="h-20 w-20 rounded-full object-cover border" />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="photo-url">URL da imagem</Label>
+            <Input
+              id="photo-url"
+              placeholder="https://exemplo.com/foto.jpg"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Cole o link de uma foto pública. Deixe em branco para remover.</p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={saving} style={{ background: 'var(--color-primary)', color: '#fff' }}>
+            {saving ? <><span className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent inline-block" />Salvando…</> : <><Check className="mr-1.5 h-4 w-4" />Salvar</>}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -281,6 +356,7 @@ function UserMenu() {
   const navigate = useNavigate()
   const { profile, organization, clear } = useAuthStore()
   const displayName = profile?.full_name ?? organization?.name ?? 'Minha conta'
+  const [photoOpen, setPhotoOpen] = useState(false)
 
   async function handleSignOut() {
     try {
@@ -293,39 +369,63 @@ function UserMenu() {
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-9 gap-2 rounded-lg px-2 hover:bg-muted"
-        >
-          <Avatar name={displayName} />
-          <span className="max-w-[140px] truncate text-sm font-medium">
-            {displayName}
-          </span>
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 rounded-xl shadow-lg">
-        <div className="px-3 py-2.5">
-          <p className="truncate text-sm font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
-            {organization?.name}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {profile?.full_name}
-          </p>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="cursor-pointer rounded-lg text-destructive focus:text-destructive"
-          onClick={handleSignOut}
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          Sair da conta
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 gap-2 rounded-lg px-2 hover:bg-muted"
+          >
+            <Avatar name={displayName} src={profile?.avatar_url} />
+            <span className="max-w-[140px] truncate text-sm font-medium">
+              {displayName}
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56 rounded-xl shadow-lg">
+          <div className="flex items-center gap-2.5 px-3 py-2.5">
+            <Avatar name={displayName} src={profile?.avatar_url} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold" style={{ fontFamily: 'var(--font-display)' }}>
+                {organization?.name}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {profile?.full_name}
+              </p>
+            </div>
+          </div>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg"
+            onClick={() => setPhotoOpen(true)}
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            Foto de perfil
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg"
+            asChild
+          >
+            <a href={supportWhatsAppLink('Olá! Preciso de ajuda com o FestaHub.')} target="_blank" rel="noopener noreferrer">
+              <HelpCircle className="mr-2 h-4 w-4" />
+              Ajuda via WhatsApp
+            </a>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg text-destructive focus:text-destructive"
+            onClick={handleSignOut}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair da conta
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <PhotoDialog open={photoOpen} onClose={() => setPhotoOpen(false)} />
+    </>
   )
 }
 

@@ -120,7 +120,7 @@ const PLANS = [
   {
     id: 'essencial',
     label: 'Essencial',
-    price: 97,
+    price: 39.9,
     description: 'Para quem está começando',
     Icon: Zap,
     features: ['Agenda de festas completa', 'Módulo de clientes', 'Financeiro completo', '1 usuário'],
@@ -129,7 +129,7 @@ const PLANS = [
   {
     id: 'profissional',
     label: 'Profissional',
-    price: 197,
+    price: 69.9,
     description: 'O mais escolhido ✦',
     Icon: Crown,
     features: ['Tudo do Essencial', 'Link de orçamento público', 'Até 5 usuários', 'Suporte prioritário', 'Relatórios avançados'],
@@ -138,7 +138,7 @@ const PLANS = [
   {
     id: 'rede',
     label: 'Rede',
-    price: 397,
+    price: 109.9,
     description: 'Para redes e franquias',
     Icon: Network,
     features: ['Tudo do Profissional', 'Múltiplas unidades', 'Usuários ilimitados', 'API de integração'],
@@ -909,7 +909,10 @@ function PlanCard({ label, price, description, Icon, features, highlight }: Plan
             className="text-5xl font-extrabold text-white"
             style={{ fontFamily: 'var(--font-display)' }}
           >
-            {price}
+            {Math.floor(price)}
+          </span>
+          <span className="text-2xl font-bold text-white/70" style={{ fontFamily: 'var(--font-display)' }}>
+            ,{String(Math.round((price % 1) * 100)).padStart(2, '0')}
           </span>
           <span className="text-sm text-white/40">/mês</span>
         </div>
