@@ -8,7 +8,7 @@
  * - Regra 7: dinheiro em centavos no banco; BRL na UI.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -30,7 +30,9 @@ import { CustomerCombobox } from '@/components/agenda/CustomerCombobox'
 import { NewCustomerDialog } from '@/components/agenda/NewCustomerDialog'
 import { ConflictWarningDialog } from '@/components/agenda/ConflictWarningDialog'
 import { StaffSection } from '@/components/agenda/StaffSection'
+import { EventItemsSection, newLocalItem, type LocalEventItem } from '@/components/agenda/EventItemsSection'
 import { detectConflicts } from '@/services/events'
+import { listEventItems, syncEventItems } from '@/services/eventItems'
 import type { Customer, EventWithDetails, Package } from '@/types/database'
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -110,7 +112,7 @@ export interface EventDialogProps {
   customers:  Customer[]
   packages:   Package[]
   onClose:    () => void
-  onCreate:   (data: EventFormPayload) => Promise<void>
+  onCreate:   (data: EventFormPayload) => Promise<string>   // retorna o id do evento criado
   onUpdate:   (id: string, data: EventFormPayload) => Promise<void>
   onAddCustomer: (payload: { org_id: string; name: string; phone?: string; child_name?: string }) => Promise<Customer>
 }
@@ -143,6 +145,9 @@ export function EventDialog({
   const [pendingPayload,    setPendingPayload]      = useState<EventFormPayload | null>(null)
   const [saving,            setSaving]             = useState(false)
 
+  // Itens do evento (catálogo + manuais)
+  const [items, setItems] = useState<LocalEventItem[]>([])
+
   // Cast necessário: o resolver condicional une dois schemas zod compatíveis com FormData.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const resolver = zodResolver(isCreate ? createSchema : baseSchema) as Resolver<FormData, any>
@@ -165,7 +170,7 @@ export function EventDialog({
       },
     })
 
-  // Preenche form ao abrir no modo edição
+  // Preenche form e carrega itens ao abrir
   useEffect(() => {
     if (!open) return
     if (mode === 'edit' && event) {
@@ -182,6 +187,21 @@ export function EventDialog({
         deposit_paid:  event.deposit_paid,
         notes:         event.notes ?? '',
       })
+      // Carrega itens existentes
+      listEventItems(event.id)
+        .then((rows) =>
+          setItems(
+            rows.map((r) =>
+              newLocalItem({
+                catalog_item_id:  r.catalog_item_id,
+                description:      r.description,
+                qty:              r.qty,
+                unit_price_cents: r.unit_price_cents,
+              }),
+            ),
+          ),
+        )
+        .catch(() => null)
     } else {
       reset({
         customer_id:   prefill?.customer_id ?? '',
@@ -196,8 +216,17 @@ export function EventDialog({
         deposit_paid:  false,
         notes:         '',
       })
+      setItems([])
     }
   }, [open, mode, event, initialDate, prefill, reset])
+
+  // Preenche o total a partir do subtotal dos itens
+  const handleUseTotal = useCallback(
+    (totalCents: number) => {
+      setValue('total_reais', totalCents / 100)
+    },
+    [setValue],
+  )
 
   // Pré-seleciona pacote ao escolher
   function handlePackageChange(pkgId: string) {
@@ -246,11 +275,24 @@ export function EventDialog({
   async function save(payload: EventFormPayload) {
     setSaving(true)
     try {
+      const itemPayloads = items.map((i) => ({
+        catalog_item_id:  i.catalog_item_id,
+        description:      i.description,
+        qty:              i.qty,
+        unit_price_cents: i.unit_price_cents,
+      }))
+
       if (isCreate) {
-        await onCreate(payload)
+        const eventId = await onCreate(payload)
+        // Persiste os itens com o id do evento recém-criado
+        if (itemPayloads.length > 0) {
+          await syncEventItems(orgId, eventId, itemPayloads)
+        }
         toast.success('Festa criada com sucesso!')
       } else {
         await onUpdate(event!.id, payload)
+        // Sincroniza itens (delete + insert) para o modo edição
+        await syncEventItems(orgId, event!.id, itemPayloads)
         toast.success('Festa atualizada!')
       }
       onClose()
@@ -453,6 +495,14 @@ export function EventDialog({
               placeholder="Tema da festa, restrições alimentares, solicitações especiais…"
               className="min-h-[72px] resize-none"
               {...register('notes')}
+            />
+
+            {/* ── Itens / pacotes ── */}
+            <EventItemsSection
+              orgId={orgId}
+              items={items}
+              onChange={setItems}
+              onUseTotal={handleUseTotal}
             />
 
             {/* ── Equipe (só edição) ── */}

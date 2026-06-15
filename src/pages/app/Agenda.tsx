@@ -76,10 +76,10 @@ export default function Agenda() {
   }
 
   // ── Handlers EventDialog ────────────────────────────────────
-  async function handleCreate(payload: EventFormPayload) {
-    if (!orgId) return
+  async function handleCreate(payload: EventFormPayload): Promise<string> {
+    if (!orgId) throw new Error('Organização não encontrada')
     const isFirst = events.length === 0
-    await addEvent({
+    const created = await addEvent({
       org_id:        orgId,
       customer_id:   payload.customer_id,
       package_id:    payload.package_id,
@@ -94,6 +94,7 @@ export default function Agenda() {
       notes:         payload.notes,
     })
     if (isFirst) trackPrimeiraFestaCriada()
+    return created.id
   }
 
   async function handleUpdate(id: string, payload: EventFormPayload) {

@@ -297,31 +297,27 @@ export default function Orcamentos() {
     setEventDialogOpen(true)
   }
 
-  async function handleEventCreate(payload: EventFormPayload) {
-    if (!orgId || !convertQuote) return
-    try {
-      await createEvent({
-        org_id:        orgId,
-        customer_id:   payload.customer_id,
-        package_id:    payload.package_id,
-        title:         payload.title,
-        date:          payload.date,
-        start_time:    payload.start_time,
-        end_time:      payload.end_time,
-        guests_count:  payload.guests_count,
-        total_cents:   payload.total_cents,
-        deposit_cents: payload.deposit_cents,
-        deposit_paid:  payload.deposit_paid,
-        notes:         payload.notes,
-      })
-      toast.success('Festa criada! Acesse a Agenda para visualizá-la.')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao criar festa')
-      return
-    }
+  async function handleEventCreate(payload: EventFormPayload): Promise<string> {
+    if (!orgId || !convertQuote) throw new Error('Dados insuficientes')
+    const created = await createEvent({
+      org_id:        orgId,
+      customer_id:   payload.customer_id,
+      package_id:    payload.package_id,
+      title:         payload.title,
+      date:          payload.date,
+      start_time:    payload.start_time,
+      end_time:      payload.end_time,
+      guests_count:  payload.guests_count,
+      total_cents:   payload.total_cents,
+      deposit_cents: payload.deposit_cents,
+      deposit_paid:  payload.deposit_paid,
+      notes:         payload.notes,
+    })
+    toast.success('Festa criada! Acesse a Agenda para visualizá-la.')
     setEventDialogOpen(false)
     setConvertQuote(null)
     void loadQuotes()
+    return created.id
   }
 
   if (!orgId) return null

@@ -147,6 +147,17 @@ export interface CatalogItem {
   sort_order:  number
 }
 
+export interface EventItem {
+  id:               string
+  created_at:       string
+  org_id:           string
+  event_id:         string
+  catalog_item_id:  string | null
+  description:      string
+  qty:              number
+  unit_price_cents: number
+}
+
 export interface ApiKey {
   id:           string
   created_at:   string
