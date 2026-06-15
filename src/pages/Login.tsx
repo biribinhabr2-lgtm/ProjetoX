@@ -119,7 +119,7 @@ export default function Login() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema) })
+  } = useForm<FormData>({ resolver: zodResolver(schema), mode: 'onBlur' })
 
   async function onSubmit(data: FormData) {
     setSubmitting(true)
