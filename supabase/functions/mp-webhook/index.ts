@@ -1,30 +1,17 @@
 /**
  * mp-webhook — recebe notificações do Mercado Pago sobre assinaturas (preapproval).
  *
- * verify_jwt = false (ver supabase/config.toml) — endpoint público, pois o MP
- * não envia cabeçalho Authorization nas notificações.
+ * verify_jwt = false — endpoint público (MP não envia JWT).
  *
- * Modelo de segurança:
- *   NUNCA confiamos nos dados do corpo do webhook para aplicar mudanças.
- *   Ao receber uma notificação com um subscription_id, SEMPRE buscamos o
- *   preapproval na API do MP (/preapproval/{id}) para verificar que ele existe
- *   e obter o status real. Só então atualizamos o banco.
- *
- * Formatos de notificação suportados:
- *   - v1 (atual):   { type: "subscription_preapproval", data: { id: "..." }, ... }
- *   - legado:       { topic: "preapproval", id: "..." }
- *
- * Mapeamento de status:
- *   authorized → active
- *   paused     → inactive
- *   cancelled  → inactive
- *   pending    → pending
+ * Segurança em camadas:
+ *  1. Validação HMAC-SHA256 da assinatura x-signature (se MP_WEBHOOK_SECRET configurado).
+ *  2. Idempotência: tabela mp_webhook_events evita processar o mesmo evento duas vezes.
+ *  3. Verificação do preapproval direto na API do MP — nunca confia no body da notificação.
  */
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { mpFetch, type MpPreapproval } from '../_shared/mp-api.ts'
 
-// ── Mapeamento de status MP → subscription_status do FestaHub ────────────
 const STATUS_MAP: Record<string, string> = {
   authorized: 'active',
   paused:     'inactive',
@@ -32,7 +19,59 @@ const STATUS_MAP: Record<string, string> = {
   pending:    'pending',
 }
 
-// ── Tipos de notificação do MP ────────────────────────────────────────────
+// ── HMAC-SHA256 (Web Crypto) ──────────────────────────────────────────────────
+
+async function hmacSha256(secret: string, message: string): Promise<string> {
+  const enc = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(message))
+  return Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Comparação em tempo constante para evitar timing attacks */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+/**
+ * Valida o header x-signature do Mercado Pago.
+ * Formato: ts=<timestamp>,v1=<hmac>
+ * Mensagem: id:<data.id>;request-id:<x-request-id>;ts:<ts>;
+ */
+async function validateMpSignature(
+  headers:       Headers,
+  dataId:        string,
+  webhookSecret: string,
+): Promise<boolean> {
+  const xSig       = headers.get('x-signature') ?? ''
+  const xRequestId = headers.get('x-request-id') ?? ''
+
+  if (!xSig) {
+    console.warn('mp-webhook: x-signature ausente')
+    return false
+  }
+
+  const tsMatch = xSig.match(/ts=([^,]+)/)
+  const v1Match = xSig.match(/v1=([^,]+)/)
+  if (!tsMatch || !v1Match) {
+    console.warn('mp-webhook: x-signature formato inválido:', xSig)
+    return false
+  }
+
+  const message  = `id:${dataId};request-id:${xRequestId};ts:${tsMatch[1]};`
+  const expected = await hmacSha256(webhookSecret, message)
+
+  const ok = timingSafeEqual(v1Match[1], expected)
+  if (!ok) console.warn('mp-webhook: HMAC inválido para:', message)
+  return ok
+}
+
+// ── Tipos ─────────────────────────────────────────────────────────────────────
 
 interface MpNotificationV1 {
   action:      string
@@ -47,15 +86,12 @@ interface MpNotificationLegacy {
   id:    string
 }
 
-// ── Type guards ───────────────────────────────────────────────────────────
-
 function isNotificationV1(v: unknown): v is MpNotificationV1 {
   if (typeof v !== 'object' || v === null) return false
   const obj = v as Record<string, unknown>
   return (
     typeof obj['type'] === 'string' &&
-    typeof obj['data'] === 'object' &&
-    obj['data'] !== null &&
+    typeof obj['data'] === 'object' && obj['data'] !== null &&
     typeof (obj['data'] as Record<string, unknown>)['id'] === 'string'
   )
 }
@@ -63,53 +99,55 @@ function isNotificationV1(v: unknown): v is MpNotificationV1 {
 function isNotificationLegacy(v: unknown): v is MpNotificationLegacy {
   if (typeof v !== 'object' || v === null) return false
   const obj = v as Record<string, unknown>
-  return (
-    typeof obj['topic'] === 'string' &&
-    typeof obj['id'] === 'string'
-  )
+  return typeof obj['topic'] === 'string' && typeof obj['id'] === 'string'
 }
 
-// ── Handler principal ─────────────────────────────────────────────────────
+// ── Handler principal ─────────────────────────────────────────────────────────
+
 Deno.serve(async (req: Request): Promise<Response> => {
-  // O MP faz GET de verificação ao cadastrar o webhook
-  if (req.method === 'GET') {
-    return new Response('OK', { status: 200 })
-  }
+  if (req.method === 'GET') return new Response('OK', { status: 200 })
+  if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 })
 
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
-  }
-
-  // Responder 200 IMEDIATAMENTE — o MP exige resposta em < 5 s
-  // O processamento real acontece de forma assíncrona abaixo.
   let rawBody: unknown
   try {
     rawBody = await req.json()
   } catch {
-    // Body vazio ou inválido (health checks do MP, por exemplo) — ignorar
-    console.log('mp-webhook: received non-JSON body, ignoring')
+    console.log('mp-webhook: body não-JSON, ignorando')
     return new Response('OK', { status: 200 })
   }
 
-  // Processa em background sem bloquear a resposta
-  void processWebhook(rawBody).catch((err: unknown) => {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.error('mp-webhook: unhandled background error:', msg)
+  // Extrai ID e captura headers antes do processamento em background
+  let earlySubId: string | null = null
+  if (isNotificationV1(rawBody) && rawBody.type === 'subscription_preapproval') {
+    earlySubId = rawBody.data.id
+  } else if (isNotificationLegacy(rawBody) && rawBody.topic === 'preapproval') {
+    earlySubId = rawBody.id
+  }
+
+  // Headers precisam ser capturados antes de retornar a resposta
+  const headersSnapshot = new Headers(req.headers)
+
+  void processWebhook(rawBody, earlySubId, headersSnapshot).catch((err: unknown) => {
+    console.error('mp-webhook: erro não tratado:', err instanceof Error ? err.message : String(err))
   })
 
   return new Response('OK', { status: 200 })
 })
 
-// ── Processamento assíncrono ──────────────────────────────────────────────
+// ── Processamento assíncrono ──────────────────────────────────────────────────
 
-async function processWebhook(rawBody: unknown): Promise<void> {
-  // ── Carregar env vars ─────────────────────────────────────────────────
+async function processWebhook(
+  rawBody:  unknown,
+  subId:    string | null,
+  headers:  Headers,
+): Promise<void> {
   const supabaseUrl    = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
   const mpAccessToken  = Deno.env.get('MP_ACCESS_TOKEN')
+  const webhookSecret  = Deno.env.get('MP_WEBHOOK_SECRET')
 
   if (!supabaseUrl || !serviceRoleKey || !mpAccessToken) {
-    console.error('mp-webhook: missing env vars — aborting')
+    console.error('mp-webhook: env vars ausentes')
     return
   }
 
@@ -117,38 +155,34 @@ async function processWebhook(rawBody: unknown): Promise<void> {
     auth: { persistSession: false },
   })
 
-  // ── Extrair subscription id ───────────────────────────────────────────
+  // ── 1. Validação HMAC ─────────────────────────────────────────────────────
+  if (webhookSecret && subId) {
+    const valid = await validateMpSignature(headers, subId, webhookSecret)
+    if (!valid) {
+      console.error('mp-webhook: assinatura inválida — rejeitando')
+      return
+    }
+  } else if (!webhookSecret) {
+    console.warn('mp-webhook: MP_WEBHOOK_SECRET não configurado — sem validação HMAC')
+  }
+
+  // ── 2. Extrair subscription_id ────────────────────────────────────────────
   let subscriptionId: string | null = null
 
   if (isNotificationV1(rawBody)) {
-    if (rawBody.type === 'subscription_preapproval') {
-      subscriptionId = rawBody.data.id
-    } else {
-      // Outro tipo de evento (payment, charge_back, etc.) — não é nossa área
-      console.log('mp-webhook: ignoring event type:', rawBody.type)
-      return
-    }
+    if (rawBody.type === 'subscription_preapproval') subscriptionId = rawBody.data.id
+    else { console.log('mp-webhook: tipo ignorado:', rawBody.type); return }
   } else if (isNotificationLegacy(rawBody)) {
-    if (rawBody.topic === 'preapproval') {
-      subscriptionId = rawBody.id
-    } else {
-      console.log('mp-webhook: ignoring legacy topic:', rawBody.topic)
-      return
-    }
+    if (rawBody.topic === 'preapproval') subscriptionId = rawBody.id
+    else { console.log('mp-webhook: tópico ignorado:', rawBody.topic); return }
   } else {
-    // Formato desconhecido — logar para investigação
-    console.warn('mp-webhook: unrecognized payload format:', JSON.stringify(rawBody).slice(0, 200))
+    console.warn('mp-webhook: formato desconhecido:', JSON.stringify(rawBody).slice(0, 200))
     return
   }
 
-  if (!subscriptionId) {
-    console.warn('mp-webhook: subscription id not found in payload')
-    return
-  }
+  if (!subscriptionId) { console.warn('mp-webhook: subscription_id ausente'); return }
 
-  // ── Verificar assinatura na API do MP (passo de segurança crítico) ────
-  // Nunca usamos os dados do body do webhook para atualizar o banco.
-  // Buscamos o preapproval diretamente do MP para garantir autenticidade.
+  // ── 3. Verificar na API do MP (fonte de verdade) ──────────────────────────
   const mpResult = await mpFetch<MpPreapproval>(
     `/preapproval/${subscriptionId}`,
     { method: 'GET' },
@@ -156,95 +190,61 @@ async function processWebhook(rawBody: unknown): Promise<void> {
   )
 
   if (!mpResult.ok) {
-    console.error(
-      `mp-webhook: failed to verify preapproval ${subscriptionId}:`,
-      mpResult.status,
-      mpResult.message,
-    )
-    // Não atualizamos nada — possível tentativa de manipulação
+    console.error(`mp-webhook: falha ao verificar ${subscriptionId}:`, mpResult.status, mpResult.message)
     return
   }
 
   const preapproval = mpResult.data
+  const mpStatus    = preapproval.status
+  const newStatus   = STATUS_MAP[mpStatus] ?? 'pending'
 
-  // ── Validar external_reference (deve ser um UUID de organização) ──────
+  // ── 4. IDEMPOTÊNCIA ───────────────────────────────────────────────────────
+  const { error: idempErr } = await admin
+    .from('mp_webhook_events')
+    .insert({ subscription_id: subscriptionId, mp_status: mpStatus })
+
+  if (idempErr) {
+    if (idempErr.code === '23505') {
+      console.log(`mp-webhook: já processado (${subscriptionId}, ${mpStatus}) — ignorando`)
+      return
+    }
+    // Erro inesperado: continua para não perder o evento
+    console.warn('mp-webhook: erro ao registrar idempotency:', idempErr.message)
+  }
+
+  // ── 5. Validar external_reference ────────────────────────────────────────
   const orgId = preapproval.external_reference
   if (!orgId || typeof orgId !== 'string' || orgId.length < 10) {
-    console.error('mp-webhook: preapproval has invalid external_reference:', orgId)
+    console.error('mp-webhook: external_reference inválido:', orgId)
     return
   }
 
-  // ── Mapear status do MP → nosso sistema ──────────────────────────────
-  const newStatus = STATUS_MAP[preapproval.status] ?? 'pending'
-
-  // ── Verificar que a organização existe antes de atualizar ─────────────
-  const { data: orgRows, error: orgFetchErr } = await admin
+  // ── 6. Verificar org existe ───────────────────────────────────────────────
+  const { data: orgRows, error: orgErr } = await admin
     .from('organizations')
     .select('id, plan')
     .eq('id', orgId)
     .limit(1)
 
-  if (orgFetchErr) {
-    console.error('mp-webhook: error fetching org:', orgFetchErr)
-    return
-  }
+  if (orgErr) { console.error('mp-webhook: erro ao buscar org:', orgErr); return }
 
-  // orgRows é um array quando usamos .select() sem .single()
   const orgList = orgRows as Array<{ id: string; plan: string }> | null
-  if (!orgList || orgList.length === 0) {
-    console.error('mp-webhook: organization not found for external_reference:', orgId)
-    return
-  }
+  if (!orgList?.length) { console.error('mp-webhook: org não encontrada:', orgId); return }
 
-  // ── Atualizar subscription_status na organização ──────────────────────
-  // Não alteramos `plan` aqui — ele foi definido em create-subscription.
-  // O status do MP é a única fonte de verdade para ativar/desativar o acesso.
-  const { error: updateError } = await admin
+  // ── 7. Atualizar status ───────────────────────────────────────────────────
+  const { error: updateErr } = await admin
     .from('organizations')
-    .update({
-      subscription_status: newStatus,
-      subscription_id:     preapproval.id,   // garante consistência
-    })
+    .update({ subscription_status: newStatus, subscription_id: preapproval.id })
     .eq('id', orgId)
 
-  if (updateError) {
-    console.error('mp-webhook: failed to update organization:', updateError)
-    return
-  }
+  if (updateErr) { console.error('mp-webhook: falha ao atualizar org:', updateErr); return }
 
-  // ── Registrar no audit_log ─────────────────────────────────────────────
-  await writeAuditLog(admin, orgId, 'mp_webhook_processed', {
-    subscription_id: preapproval.id,
-    mp_status:       preapproval.status,
-    our_status:      newStatus,
-    reason:          preapproval.reason,
+  // ── 8. Auditoria ──────────────────────────────────────────────────────────
+  await admin.from('audit_log').insert({
+    org_id: orgId, user_id: null, action: 'mp_webhook_processed',
+    entity: 'subscription', entity_id: null,
+    payload: { subscription_id: preapproval.id, mp_status: mpStatus, our_status: newStatus, reason: preapproval.reason },
   })
 
-  console.log(
-    `mp-webhook: ✓ org=${orgId} subscription=${preapproval.id}`,
-    `mp_status=${preapproval.status} → our_status=${newStatus}`,
-  )
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────
-
-async function writeAuditLog(
-  admin:    SupabaseClient,
-  orgId:    string,
-  action:   string,
-  payload:  Record<string, unknown>,
-): Promise<void> {
-  const { error } = await admin.from('audit_log').insert({
-    org_id:    orgId,
-    user_id:   null,          // ação automática, sem usuário
-    action,
-    entity:    'subscription',
-    entity_id: (payload['subscription_id'] as string | undefined) ?? null,
-    payload,
-  })
-
-  if (error) {
-    // Não propaga erro — audit log é melhor-esforço
-    console.error('mp-webhook: failed to write audit_log:', error)
-  }
+  console.log(`mp-webhook: ✓ org=${orgId} sub=${preapproval.id} mp=${mpStatus} → ${newStatus}`)
 }

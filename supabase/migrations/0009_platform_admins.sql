@@ -107,7 +107,7 @@ begin
     auth.uid(),
     'admin_set_org_plan',
     'organization',
-    p_org_id::text,
+    p_org_id,
     jsonb_build_object(
       'plan',       p_plan,
       'status',     p_status,
