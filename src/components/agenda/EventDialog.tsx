@@ -143,6 +143,8 @@ export function EventDialog({
 
   // Itens do evento (catálogo + manuais)
   const [items, setItems] = useState<LocalEventItem[]>([])
+  // true quando o evento já tinha itens no banco — garante sync mesmo ao limpar todos
+  const [hadItemsInDB, setHadItemsInDB] = useState(false)
 
   // Cast necessário: o resolver condicional une dois schemas zod compatíveis com FormData.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -185,7 +187,8 @@ export function EventDialog({
       })
       // Carrega itens existentes
       listEventItems(event.id)
-        .then((rows) =>
+        .then((rows) => {
+          setHadItemsInDB(rows.length > 0)
           setItems(
             rows.map((r) =>
               newLocalItem({
@@ -195,10 +198,12 @@ export function EventDialog({
                 unit_price_cents: r.unit_price_cents,
               }),
             ),
-          ),
-        )
+          )
+        })
         .catch(() => null)
     } else {
+      setHadItemsInDB(false)
+      setItems([])
       reset({
         customer_id:   prefill?.customer_id ?? '',
         package_id:    null,
@@ -212,7 +217,6 @@ export function EventDialog({
         deposit_paid:  false,
         notes:         '',
       })
-      setItems([])
     }
   }, [open, mode, event, initialDate, prefill, reset])
 
@@ -280,8 +284,11 @@ export function EventDialog({
         toast.success('Festa criada com sucesso!')
       } else {
         await onUpdate(event!.id, payload)
-        // Sincroniza itens (delete + insert) para o modo edição
-        await syncEventItems(orgId, event!.id, itemPayloads)
+        // Só sincroniza itens se havia algo no banco ou o usuário adicionou itens
+        // (evita DELETE em tabela inexistente quando migration 0010 não foi rodada)
+        if (hadItemsInDB || itemPayloads.length > 0) {
+          await syncEventItems(orgId, event!.id, itemPayloads)
+        }
         toast.success('Festa atualizada!')
       }
       onClose()
