@@ -1,6 +1,6 @@
 -- ============================================================
 -- FestaHub 0013 — Convites de membros via link compartilhável
--- Execute no SQL Editor do Supabase
+-- Idempotente: pode ser executado múltiplas vezes sem erro
 -- ============================================================
 
 create table if not exists public.org_invites (
@@ -17,7 +17,9 @@ create table if not exists public.org_invites (
 
 alter table public.org_invites enable row level security;
 
--- membros podem ver convites da própria org
+drop policy if exists "org_invites: select" on public.org_invites;
+drop policy if exists "org_invites: insert" on public.org_invites;
+
 create policy "org_invites: select"
   on public.org_invites for select
   using (exists (
@@ -26,7 +28,6 @@ create policy "org_invites: select"
       and memberships.user_id = auth.uid()
   ));
 
--- owner/admin podem criar convites
 create policy "org_invites: insert"
   on public.org_invites for insert
   with check (
@@ -39,13 +40,10 @@ create policy "org_invites: insert"
     )
   );
 
-create index on public.org_invites (token);
-create index on public.org_invites (org_id);
+create index if not exists org_invites_token_idx on public.org_invites (token);
+create index if not exists org_invites_org_id_idx on public.org_invites (org_id);
 
 -- ─── RPC: aceitar convite ─────────────────────────────────────
--- Qualquer usuário autenticado pode aceitar um convite válido.
--- SECURITY DEFINER para escrever em memberships sem RLS insert do convidado.
-
 create or replace function public.accept_invite(p_token text)
 returns jsonb
 language plpgsql
@@ -70,7 +68,6 @@ begin
     raise exception 'Convite inválido ou expirado.';
   end if;
 
-  -- já é membro?
   if exists (
     select 1 from public.memberships
     where org_id = v_invite.org_id and user_id = v_uid
@@ -78,11 +75,9 @@ begin
     return jsonb_build_object('org_id', v_invite.org_id, 'already_member', true);
   end if;
 
-  -- cria membership
   insert into public.memberships (org_id, user_id, role)
   values (v_invite.org_id, v_uid, v_invite.role);
 
-  -- marca convite como usado
   update public.org_invites
   set used_by = v_uid, used_at = now()
   where id = v_invite.id;
