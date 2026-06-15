@@ -189,15 +189,16 @@ function TrialBanner() {
   const navigate = useNavigate()
   const { isTrial, trialDaysLeft, isActive } = usePlan()
 
-  // só mostra quando trial ativo com ≤ 7 dias OU trial expirado
   if (!isTrial) return null
-  if (isActive && trialDaysLeft > 7) return null
 
-  const expired = !isActive
-  const bg = expired ? 'var(--color-destructive)' : '#F59E0B'
+  const expired  = !isActive
+  const urgent   = isActive && trialDaysLeft <= 5
+  const bg       = expired ? 'var(--color-destructive)'
+                 : urgent  ? '#DC7500'
+                 :           '#F59E0B'
   const msg = expired
-    ? 'Seu período de trial expirou.'
-    : `Seu trial expira em ${trialDaysLeft} dia${trialDaysLeft !== 1 ? 's' : ''}.`
+    ? 'Seu período de trial expirou. Assine para continuar usando o FestaHub.'
+    : `Trial: ${trialDaysLeft} dia${trialDaysLeft !== 1 ? 's' : ''} restante${trialDaysLeft !== 1 ? 's' : ''}.${urgent ? ' Assine para não perder acesso!' : ''}`
 
   return (
     <div
@@ -206,7 +207,7 @@ function TrialBanner() {
     >
       <span className="flex items-center gap-2">
         <AlertTriangle className="h-4 w-4 shrink-0" />
-        {msg} Assine agora para continuar usando o FestaHub.
+        {msg}
       </span>
       <button
         onClick={() => navigate('/app/configuracoes')}
@@ -215,6 +216,67 @@ function TrialBanner() {
         Ver planos
       </button>
     </div>
+  )
+}
+
+// ─── TrialReminderModal ───────────────────────────────────────
+function TrialReminderModal() {
+  const navigate = useNavigate()
+  const { isTrial, trialDaysLeft, isActive } = usePlan()
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    if (!isTrial || !isActive || trialDaysLeft > 5) return
+    const key  = `trial_reminder_${new Date().toDateString()}`
+    if (localStorage.getItem(key)) return
+    // Atrasa 2s para não supreender o usuário na abertura da tela
+    const t = setTimeout(() => {
+      localStorage.setItem(key, '1')
+      setOpen(true)
+    }, 2000)
+    return () => clearTimeout(t)
+  }, [isTrial, isActive, trialDaysLeft])
+
+  if (!open) return null
+
+  const urgencyColor = trialDaysLeft <= 2 ? 'var(--color-destructive)' : '#DC7500'
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle style={{ fontFamily: 'var(--font-display)', color: urgencyColor }}>
+            {trialDaysLeft === 0
+              ? 'Seu trial expira hoje!'
+              : `${trialDaysLeft} dia${trialDaysLeft !== 1 ? 's' : ''} de trial restante${trialDaysLeft !== 1 ? 's' : ''}`}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-1">
+          <p className="text-sm text-muted-foreground">
+            Não perca acesso à agenda, clientes, orçamentos e financeiro do seu buffet. Escolha um plano e continue com tudo funcionando.
+          </p>
+          <ul className="space-y-1 text-sm">
+            {['Agenda de festas completa', 'Clientes com radar de aniversários', 'Orçamentos com link público', 'Financeiro e relatórios'].map((f) => (
+              <li key={f} className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--color-primary)' }} />
+                {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Lembrar depois
+          </Button>
+          <Button
+            onClick={() => { setOpen(false); navigate('/app/configuracoes') }}
+            style={{ background: 'var(--color-primary)', color: '#fff' }}
+          >
+            Ver planos agora
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -499,6 +561,8 @@ export default function AppLayout() {
 
         {/* Banner de trial */}
         <TrialBanner />
+        {/* Modal de lembrete de trial (≤5 dias, 1×/dia) */}
+        <TrialReminderModal />
         {/* Banner de simulação (admin) */}
         <SimulationBanner />
 

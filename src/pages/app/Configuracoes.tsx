@@ -832,13 +832,113 @@ const ROLE_LABELS: Record<string, string> = {
   atendente: 'Atendente',
 }
 
+const INVITE_ROLE_OPTIONS = [
+  { value: 'atendente', label: 'Atendente — visualiza e edita festas' },
+  { value: 'admin',     label: 'Admin — acesso total exceto cobrança' },
+] as const
+
+function InviteDialog({
+  open,
+  orgId,
+  onClose,
+  onSuccess,
+}: {
+  open:      boolean
+  orgId:     string
+  onClose:   () => void
+  onSuccess: () => void
+}) {
+  const [email,   setEmail]   = useState('')
+  const [role,    setRole]    = useState<'atendente' | 'admin'>('atendente')
+  const [sending, setSending] = useState(false)
+
+  async function handleSend() {
+    const trimmed = email.trim().toLowerCase()
+    if (!trimmed || !trimmed.includes('@')) {
+      toast.error('Digite um e-mail válido.')
+      return
+    }
+    setSending(true)
+    try {
+      const { inviteMember } = await import('@/services/invites')
+      await inviteMember(orgId, trimmed, role)
+      toast.success(`Convite enviado para ${trimmed}!`)
+      setEmail('')
+      setRole('atendente')
+      onSuccess()
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar convite.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle style={{ fontFamily: 'var(--font-display)' }}>Convidar membro</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="invite-email">E-mail</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              placeholder="colaborador@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleSend() }}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="invite-role">Papel</Label>
+            <select
+              id="invite-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'atendente' | 'admin')}
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {INVITE_ROLE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            O convidado receberá um e-mail com link de acesso. Se já tiver conta no FestaHub, será adicionado diretamente.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={sending}>Cancelar</Button>
+          <Button
+            onClick={handleSend}
+            disabled={sending}
+            style={{ background: 'var(--color-primary)', color: '#fff' }}
+          >
+            {sending
+              ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Enviando…</>
+              : 'Enviar convite'
+            }
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function MembersSection() {
   const organization = useAuthStore((s) => s.organization)
+  const membership   = useAuthStore((s) => s.membership)
   const { can, maxMembers, plan } = usePlan()
   const [members, setMembers]   = useState<OrgMember[]>([])
   const [loading, setLoading]   = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
 
-  const hasAccess = can('multi_user')
+  const hasAccess  = can('multi_user')
+  const canInvite  = membership?.role === 'owner' || membership?.role === 'admin'
+  const atLimit    = plan !== 'rede' && members.length >= maxMembers
 
   const load = useCallback(async () => {
     if (!organization) return
@@ -868,19 +968,35 @@ function MembersSection() {
     )
   }
 
-  const limitLabel = plan === 'rede' ? 'ilimitados' : `até ${maxMembers}`
+  const limitLabel = plan === 'rede'
+    ? 'Usuários ilimitados'
+    : `${members.length} de ${maxMembers} membro${maxMembers !== 1 ? 's' : ''}`
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {members.length} membro{members.length !== 1 ? 's' : ''} · {limitLabel}
-        </p>
-        <div className="flex items-center gap-2 rounded-full border bg-muted/50 px-3 py-1 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          Convite de membros em breve
-        </div>
+        <p className="text-sm text-muted-foreground">{limitLabel}</p>
+        {canInvite && (
+          <Button
+            size="sm"
+            disabled={atLimit}
+            title={atLimit ? `Limite de ${maxMembers} membros atingido. Faça upgrade.` : undefined}
+            onClick={() => setInviteOpen(true)}
+            style={{ background: 'var(--color-primary)', color: '#fff' }}
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            Convidar
+          </Button>
+        )}
       </div>
+
+      {atLimit && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          Limite de membros atingido. Faça upgrade para o plano Rede para adicionar mais.
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-6">
@@ -888,8 +1004,8 @@ function MembersSection() {
         </div>
       ) : (
         <div className="divide-y rounded-xl border">
-          {members.map(({ membership, profile }) => (
-            <div key={membership.id} className="flex items-center gap-3 px-4 py-3">
+          {members.map(({ membership: m, profile }) => (
+            <div key={m.id} className="flex items-center gap-3 px-4 py-3">
               <div
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
                 style={{ background: 'var(--color-primary)' }}
@@ -900,11 +1016,20 @@ function MembersSection() {
                 <p className="truncate text-sm font-medium">{profile.full_name ?? 'Usuário'}</p>
               </div>
               <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
-                {ROLE_LABELS[membership.role] ?? membership.role}
+                {ROLE_LABELS[m.role] ?? m.role}
               </span>
             </div>
           ))}
         </div>
+      )}
+
+      {organization && (
+        <InviteDialog
+          open={inviteOpen}
+          orgId={organization.id}
+          onClose={() => setInviteOpen(false)}
+          onSuccess={load}
+        />
       )}
     </div>
   )
