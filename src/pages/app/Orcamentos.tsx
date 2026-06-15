@@ -33,7 +33,6 @@ import {
 import { createEvent } from '@/services/events'
 import { listCatalogItems } from '@/services/catalog'
 import { useCustomers } from '@/hooks/useCustomers'
-import { usePackages } from '@/hooks/usePackages'
 import { useAuthStore } from '@/stores/authStore'
 import type { QuoteStatus, QuoteWithCustomer, CatalogItem } from '@/types/database'
 
@@ -218,7 +217,6 @@ export default function Orcamentos() {
   const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([])
 
   const { customers, addCustomer } = useCustomers(orgId)
-  const { packages } = usePackages(orgId)
 
   // ── Carregar ────────────────────────────────────────────────
   const loadQuotes = useCallback(async () => {
@@ -508,7 +506,6 @@ export default function Orcamentos() {
           mode="create"
           orgId={orgId}
           customers={customers}
-          packages={packages}
           onClose={() => { setEventDialogOpen(false); setConvertQuote(null) }}
           onCreate={handleEventCreate}
           onUpdate={async () => { void 0 }}

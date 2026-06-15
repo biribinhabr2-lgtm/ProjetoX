@@ -23,9 +23,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import { CustomerCombobox } from '@/components/agenda/CustomerCombobox'
 import { NewCustomerDialog } from '@/components/agenda/NewCustomerDialog'
 import { ConflictWarningDialog } from '@/components/agenda/ConflictWarningDialog'
@@ -33,7 +30,7 @@ import { StaffSection } from '@/components/agenda/StaffSection'
 import { EventItemsSection, newLocalItem, type LocalEventItem } from '@/components/agenda/EventItemsSection'
 import { detectConflicts } from '@/services/events'
 import { listEventItems, syncEventItems } from '@/services/eventItems'
-import type { Customer, EventWithDetails, Package } from '@/types/database'
+import type { Customer, EventWithDetails } from '@/types/database'
 
 // ── Helpers ──────────────────────────────────────────────────
 const today = () => format(new Date(), 'yyyy-MM-dd')
@@ -110,7 +107,6 @@ export interface EventDialogProps {
   event?:     EventWithDetails    // preenche o form ao editar
   prefill?:   EventDialogPrefill  // pré-preenche ao criar a partir de orçamento
   customers:  Customer[]
-  packages:   Package[]
   onClose:    () => void
   onCreate:   (data: EventFormPayload) => Promise<string>   // retorna o id do evento criado
   onUpdate:   (id: string, data: EventFormPayload) => Promise<void>
@@ -134,7 +130,7 @@ export interface EventFormPayload {
 // ── EventDialog ───────────────────────────────────────────────
 export function EventDialog({
   open, mode, orgId, initialDate, event, prefill,
-  customers, packages,
+  customers,
   onClose, onCreate, onUpdate, onAddCustomer,
 }: EventDialogProps) {
   const isCreate = mode === 'create'
@@ -227,13 +223,6 @@ export function EventDialog({
     },
     [setValue],
   )
-
-  // Pré-seleciona pacote ao escolher
-  function handlePackageChange(pkgId: string) {
-    setValue('package_id', pkgId === 'none' ? null : pkgId)
-    const pkg = packages.find((p) => p.id === pkgId)
-    if (pkg) setValue('total_reais', pkg.base_price_cents / 100)
-  }
 
   function buildPayload(data: FormData): EventFormPayload {
     return {
@@ -359,37 +348,6 @@ export function EventDialog({
               )}
             />
             <FieldError message={errors.customer_id?.message} />
-
-            {/* ── Pacote ── */}
-            <SectionLabel>Pacote (opcional)</SectionLabel>
-            <Controller
-              name="package_id"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  value={field.value ?? 'none'}
-                  onValueChange={handlePackageChange}
-                >
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Sem pacote" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem pacote</SelectItem>
-                    {packages.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                        {p.base_price_cents > 0 && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-                              .format(p.base_price_cents / 100)}
-                          </span>
-                        )}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
 
             {/* ── Título personalizado ── */}
             <SectionLabel>Detalhes</SectionLabel>

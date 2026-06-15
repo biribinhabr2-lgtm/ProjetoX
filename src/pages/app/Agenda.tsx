@@ -23,7 +23,6 @@ import { EventListView } from '@/components/agenda/EventListView'
 import { EventDialog, type EventFormPayload } from '@/components/agenda/EventDialog'
 import { useEvents } from '@/hooks/useEvents'
 import { useCustomers } from '@/hooks/useCustomers'
-import { usePackages } from '@/hooks/usePackages'
 import { useAuthStore } from '@/stores/authStore'
 import { trackPrimeiraFestaCriada } from '@/lib/analytics'
 import type { EventWithDetails } from '@/types/database'
@@ -54,7 +53,6 @@ export default function Agenda() {
   } = useEvents(orgId, year, month)
 
   const { customers, addCustomer } = useCustomers(orgId)
-  const { packages }               = usePackages(orgId)
 
   // ── Navegação de mês ────────────────────────────────────────
   function prevMonth() { setCurrentMonth((d) => subMonths(d, 1)); setSelectedDate(null) }
@@ -314,7 +312,6 @@ export default function Agenda() {
         initialDate={dialogDate}
         event={editingEvent}
         customers={customers}
-        packages={packages}
         onClose={() => setDialogOpen(false)}
         onCreate={handleCreate}
         onUpdate={handleUpdate}
