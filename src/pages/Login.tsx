@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -110,6 +110,7 @@ function BrandPanel() {
 // ─── Página Login ────────────────────────────────────────────
 export default function Login() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const refreshOrg = useAuthStore((s) => s.refreshOrg)
   const organization = useAuthStore((s) => s.organization)
   const [submitting, setSubmitting] = useState(false)
@@ -125,7 +126,10 @@ export default function Login() {
     try {
       await signIn(data.email, data.password)
       await refreshOrg()
-      if (organization) {
+      const next = searchParams.get('next')
+      if (next) {
+        navigate(next, { replace: true })
+      } else if (organization) {
         navigate('/app/agenda', { replace: true })
       } else {
         navigate('/onboarding', { replace: true })

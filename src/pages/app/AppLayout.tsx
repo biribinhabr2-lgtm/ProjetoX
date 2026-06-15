@@ -219,66 +219,9 @@ function TrialBanner() {
   )
 }
 
-// ─── TrialReminderModal ───────────────────────────────────────
-function TrialReminderModal() {
-  const navigate = useNavigate()
-  const { isTrial, trialDaysLeft, isActive } = usePlan()
-  const [open, setOpen] = useState(false)
-
-  useEffect(() => {
-    if (!isTrial || !isActive || trialDaysLeft > 5) return
-    const key  = `trial_reminder_${new Date().toDateString()}`
-    if (localStorage.getItem(key)) return
-    // Atrasa 2s para não supreender o usuário na abertura da tela
-    const t = setTimeout(() => {
-      localStorage.setItem(key, '1')
-      setOpen(true)
-    }, 2000)
-    return () => clearTimeout(t)
-  }, [isTrial, isActive, trialDaysLeft])
-
-  if (!open) return null
-
-  const urgencyColor = trialDaysLeft <= 2 ? 'var(--color-destructive)' : '#DC7500'
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle style={{ fontFamily: 'var(--font-display)', color: urgencyColor }}>
-            {trialDaysLeft === 0
-              ? 'Seu trial expira hoje!'
-              : `${trialDaysLeft} dia${trialDaysLeft !== 1 ? 's' : ''} de trial restante${trialDaysLeft !== 1 ? 's' : ''}`}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3 py-1">
-          <p className="text-sm text-muted-foreground">
-            Não perca acesso à agenda, clientes, orçamentos e financeiro do seu buffet. Escolha um plano e continue com tudo funcionando.
-          </p>
-          <ul className="space-y-1 text-sm">
-            {['Agenda de festas completa', 'Clientes com radar de aniversários', 'Orçamentos com link público', 'Financeiro e relatórios'].map((f) => (
-              <li key={f} className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: 'var(--color-primary)' }} />
-                {f}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <DialogFooter className="gap-2">
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            Lembrar depois
-          </Button>
-          <Button
-            onClick={() => { setOpen(false); navigate('/app/configuracoes') }}
-            style={{ background: 'var(--color-primary)', color: '#fff' }}
-          >
-            Ver planos agora
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
+// TrialReminderModal removido — o Dialog do Radix capturava foco
+// e bloqueava atalhos do browser (F11, DevTools). O TrialBanner
+// já exibe o countdown visível no topo da página.
 
 // ─── SimulationBanner ────────────────────────────────────────
 function SimulationBanner() {
@@ -320,7 +263,7 @@ function Sidebar({ onClose }: SidebarProps) {
 
   return (
     <div
-      className="flex h-full flex-col"
+      className="flex h-full flex-col overflow-hidden"
       style={{ background: 'var(--color-sidebar)', color: 'var(--color-sidebar-foreground)' }}
     >
       {/* Logo */}
@@ -360,8 +303,8 @@ function Sidebar({ onClose }: SidebarProps) {
         Menu
       </p>
 
-      {/* Navegação */}
-      <nav className="mt-1 flex-1 space-y-0.5 px-2 pb-4">
+      {/* Navegação — overflow-y-auto impede que itens extras empurrem o badge para fora */}
+      <nav className="mt-1 flex-1 overflow-y-auto space-y-0.5 px-2 pb-4">
         {navItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
@@ -561,8 +504,6 @@ export default function AppLayout() {
 
         {/* Banner de trial */}
         <TrialBanner />
-        {/* Modal de lembrete de trial (≤5 dias, 1×/dia) */}
-        <TrialReminderModal />
         {/* Banner de simulação (admin) */}
         <SimulationBanner />
 
