@@ -7,6 +7,7 @@
 
 import { supabase } from '@/lib/supabase'
 import type { Transaction, TransactionType } from '@/types/database'
+import { useAuthStore } from '@/stores/authStore'
 
 // ── Categorias fixas ──────────────────────────────────────────
 export const TRANSACTION_CATEGORIES = [
@@ -156,15 +157,19 @@ export async function updateTransaction(
   id: string,
   payload: UpdateTransactionPayload,
 ): Promise<Transaction> {
+  const orgId = useAuthStore.getState().organization?.id
+  if (!orgId) throw new Error('Organização não encontrada na sessão')
+
   const { data, error } = await supabase
     .from('transactions')
     .update(payload)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select()
-    .single()
 
   if (error) throw error
-  return data as Transaction
+  if (!data || data.length === 0) throw new Error('Registro não encontrado ou sem permissão')
+  return data[0] as Transaction
 }
 
 export async function removeTransaction(orgId: string, id: string): Promise<void> {

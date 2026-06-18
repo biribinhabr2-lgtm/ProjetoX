@@ -7,6 +7,7 @@
 
 import { supabase } from '@/lib/supabase'
 import { sendEmail } from '@/services/email'
+import { useAuthStore } from '@/stores/authStore'
 import type { Quote, QuoteItem, QuoteStatus, QuoteWithCustomer, PublicQuoteResponse } from '@/types/database'
 
 const QUOTE_SELECT =
@@ -90,15 +91,19 @@ export async function updateQuote(
   id: string,
   payload: UpdateQuotePayload,
 ): Promise<QuoteWithCustomer> {
+  const orgId = useAuthStore.getState().organization?.id
+  if (!orgId) throw new Error('Organização não encontrada na sessão')
+
   const { data, error } = await supabase
     .from('quotes')
     .update(payload)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select(QUOTE_SELECT)
-    .single()
 
   if (error) throw error
-  return rowToQuoteWithCustomer(data as QuoteRow)
+  if (!data || data.length === 0) throw new Error('Registro não encontrado ou sem permissão')
+  return rowToQuoteWithCustomer(data[0] as QuoteRow)
 }
 
 export async function removeQuote(orgId: string, id: string): Promise<void> {

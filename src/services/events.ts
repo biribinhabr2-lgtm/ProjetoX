@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import type { EventStatus, EventWithDetails } from '@/types/database'
 import { createEventTransactions } from '@/services/transactions'
+import { useAuthStore } from '@/stores/authStore'
 
 // ── Tipo interno da linha retornada pelo Supabase com joins ──
 interface EventRow {
@@ -94,15 +95,19 @@ export async function updateEvent(
   id: string,
   payload: UpdateEventPayload,
 ): Promise<EventWithDetails> {
+  const orgId = useAuthStore.getState().organization?.id
+  if (!orgId) throw new Error('Organização não encontrada na sessão')
+
   const { data, error } = await supabase
     .from('events')
     .update(payload)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select(EVENT_SELECT)
-    .single()
 
   if (error) throw error
-  return rowToDetails(data as EventRow)
+  if (!data || data.length === 0) throw new Error('Registro não encontrado ou sem permissão')
+  return rowToDetails(data[0] as EventRow)
 }
 
 // ── Remover festa ────────────────────────────────────────────

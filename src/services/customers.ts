@@ -8,6 +8,7 @@
 import { supabase } from '@/lib/supabase'
 import type { Customer, CustomerWithStats, EventWithDetails } from '@/types/database'
 import type { EventStatus } from '@/types/database'
+import { useAuthStore } from '@/stores/authStore'
 
 // ── Tipos internos dos joins ─────────────────────────────────
 interface EventStatsRow {
@@ -161,15 +162,19 @@ export async function updateCustomer(
   id: string,
   payload: UpdateCustomerPayload,
 ): Promise<Customer> {
+  const orgId = useAuthStore.getState().organization?.id
+  if (!orgId) throw new Error('Organização não encontrada na sessão')
+
   const { data, error } = await supabase
     .from('customers')
     .update(payload)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select()
-    .single()
 
   if (error) throw error
-  return data as Customer
+  if (!data || data.length === 0) throw new Error('Registro não encontrado ou sem permissão')
+  return data[0] as Customer
 }
 
 /** Erro especial lançado quando há festas vinculadas ao cliente */
