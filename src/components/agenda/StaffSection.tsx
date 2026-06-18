@@ -27,7 +27,6 @@ import {
 } from '@/services/staff'
 import {
   renderTemplate,
-  renderMultiAllocMessage,
   buildWhatsAppLink,
   calcDuracao,
   formatDateBR,
@@ -300,17 +299,6 @@ function buildAllocWaHref(
     funcao:         alloc.role_in_event ?? alloc.staff_member.role ?? '',
     observacoes:    '',
   }
-  const message = renderMultiAllocMessage(template, { nome: data.nome, buffet: data.buffet, local }, [
-    {
-      festa:          data.festa,
-      data:           data.data,
-      horario_inicio: data.horario_inicio,
-      horario_fim:    data.horario_fim,
-      duracao:        data.duracao,
-      funcao:         data.funcao,
-    },
-  ])
-  // renderMultiAllocMessage com 1 evento chama renderTemplate internamente
   const singleMsg = renderTemplate(template, data)
   return buildWhatsAppLink(alloc.staff_member.phone, singleMsg)
 }
@@ -357,7 +345,7 @@ export function StaffSection({
 
   async function handleRemove(allocId: string) {
     try {
-      await removeAllocation(allocId)
+      await removeAllocation(orgId, allocId)
       setAllocations((prev) => prev.filter((a) => a.id !== allocId))
     } catch {
       toast.error('Erro ao remover')
@@ -366,7 +354,7 @@ export function StaffSection({
 
   async function handleToggleConfirm(alloc: EventStaffWithDetails) {
     try {
-      await toggleConfirmed(alloc.id, !alloc.confirmed)
+      await toggleConfirmed(orgId, alloc.id, !alloc.confirmed)
       setAllocations((prev) =>
         prev.map((a) => (a.id === alloc.id ? { ...a, confirmed: !alloc.confirmed } : a)),
       )

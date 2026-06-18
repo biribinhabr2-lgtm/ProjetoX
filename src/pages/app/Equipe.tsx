@@ -3,7 +3,7 @@
  * Regra 2: todos os sub-componentes em nível de módulo.
  */
 import { useEffect, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, Pencil, Phone, Loader2, UserCheck, UserX } from 'lucide-react'
@@ -90,8 +90,9 @@ interface StaffDialogProps {
 function StaffDialog({ open, orgId, editing, onClose, onSaved }: StaffDialogProps) {
   const [saving, setSaving] = useState(false)
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- z.coerce.number input type é unknown
   const { register, control, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: zodResolver(schema) as Resolver<FormData, any>,
     defaultValues: { name: '', phone: '', role: null, hourly_rate_reais: null, active: true, notes: '' },
   })
 
@@ -126,7 +127,7 @@ function StaffDialog({ open, orgId, editing, onClose, onSaved }: StaffDialogProp
       }
 
       if (editing) {
-        const m = await updateMember(editing.id, payload)
+        const m = await updateMember(orgId, editing.id, payload)
         onSaved(m, false)
         toast.success('Funcionário atualizado!')
       } else {
@@ -351,7 +352,7 @@ export default function Equipe() {
 
   async function handleToggleActive(m: StaffMember) {
     try {
-      await toggleActive(m.id, !m.active)
+      await toggleActive(orgId, m.id, !m.active)
       setMembers((prev) => prev.map((x) => (x.id === m.id ? { ...x, active: !m.active } : x)))
     } catch {
       toast.error('Erro ao atualizar status')
@@ -427,7 +428,8 @@ export default function Equipe() {
         <EmptyState
           title="Nenhum funcionário cadastrado"
           description="Cadastre os recreadores, monitores e demais funcionários para escalá-los nas festas."
-          action={{ label: 'Cadastrar funcionário', onClick: openNew }}
+          actionLabel="Cadastrar funcionário"
+          onAction={openNew}
         />
       ) : filtered.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">

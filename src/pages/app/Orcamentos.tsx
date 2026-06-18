@@ -278,7 +278,7 @@ export default function Orcamentos() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await removeQuote(deleteTarget.id)
+      await removeQuote(orgId ?? '', deleteTarget.id)
       toast.success('Orçamento removido')
       setDeleteTarget(null)
       void loadQuotes()

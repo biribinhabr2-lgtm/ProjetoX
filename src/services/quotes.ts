@@ -101,8 +101,8 @@ export async function updateQuote(
   return rowToQuoteWithCustomer(data as QuoteRow)
 }
 
-export async function removeQuote(id: string): Promise<void> {
-  const { error } = await supabase.from('quotes').delete().eq('id', id)
+export async function removeQuote(orgId: string, id: string): Promise<void> {
+  const { error } = await supabase.from('quotes').delete().eq('id', id).eq('org_id', orgId)
   if (error) throw error
 }
 

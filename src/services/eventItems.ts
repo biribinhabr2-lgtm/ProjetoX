@@ -8,11 +8,12 @@ export interface EventItemPayload {
   unit_price_cents: number
 }
 
-export async function listEventItems(eventId: string): Promise<EventItem[]> {
+export async function listEventItems(orgId: string, eventId: string): Promise<EventItem[]> {
   const { data, error } = await supabase
     .from('event_items')
     .select('*')
     .eq('event_id', eventId)
+    .eq('org_id', orgId)
     .order('created_at')
   if (error) throw error
   return data ?? []
@@ -28,6 +29,7 @@ export async function syncEventItems(
     .from('event_items')
     .delete()
     .eq('event_id', eventId)
+    .eq('org_id', orgId)
   if (delErr) throw delErr
 
   if (items.length === 0) return

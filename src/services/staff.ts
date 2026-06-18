@@ -59,22 +59,24 @@ export async function createMember(orgId: string, payload: StaffMemberPayload): 
   return data
 }
 
-export async function updateMember(id: string, payload: Partial<StaffMemberPayload>): Promise<StaffMember> {
+export async function updateMember(orgId: string, id: string, payload: Partial<StaffMemberPayload>): Promise<StaffMember> {
   const { data, error } = await supabase
     .from('staff_members')
     .update(payload)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select()
     .single()
   if (error) throw error
   return data
 }
 
-export async function toggleActive(id: string, active: boolean): Promise<void> {
+export async function toggleActive(orgId: string, id: string, active: boolean): Promise<void> {
   const { error } = await supabase
     .from('staff_members')
     .update({ active })
     .eq('id', id)
+    .eq('org_id', orgId)
   if (error) throw error
 }
 
@@ -100,30 +102,33 @@ export async function allocate(payload: AllocatePayload): Promise<EventStaff> {
   return data
 }
 
-export async function updateAllocation(id: string, payload: Partial<AllocatePayload>): Promise<EventStaff> {
+export async function updateAllocation(orgId: string, id: string, payload: Partial<AllocatePayload>): Promise<EventStaff> {
   const { data, error } = await supabase
     .from('event_staff')
     .update(payload)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select()
     .single()
   if (error) throw error
   return data
 }
 
-export async function removeAllocation(id: string): Promise<void> {
+export async function removeAllocation(orgId: string, id: string): Promise<void> {
   const { error } = await supabase
     .from('event_staff')
     .delete()
     .eq('id', id)
+    .eq('org_id', orgId)
   if (error) throw error
 }
 
-export async function toggleConfirmed(id: string, confirmed: boolean): Promise<void> {
+export async function toggleConfirmed(orgId: string, id: string, confirmed: boolean): Promise<void> {
   const { error } = await supabase
     .from('event_staff')
     .update({ confirmed })
     .eq('id', id)
+    .eq('org_id', orgId)
   if (error) throw error
 }
 

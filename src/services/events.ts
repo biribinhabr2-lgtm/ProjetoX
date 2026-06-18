@@ -106,8 +106,8 @@ export async function updateEvent(
 }
 
 // ── Remover festa ────────────────────────────────────────────
-export async function removeEvent(id: string): Promise<void> {
-  const { error } = await supabase.from('events').delete().eq('id', id)
+export async function removeEvent(orgId: string, id: string): Promise<void> {
+  const { error } = await supabase.from('events').delete().eq('id', id).eq('org_id', orgId)
   if (error) throw error
 }
 

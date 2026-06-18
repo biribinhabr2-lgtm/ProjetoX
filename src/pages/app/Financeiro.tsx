@@ -347,7 +347,7 @@ export default function Financeiro() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await removeTransaction(deleteTarget.id)
+      await removeTransaction(orgId ?? '', deleteTarget.id)
       toast.success('Lançamento removido')
       setDeleteTarget(null)
       void loadTransactions()

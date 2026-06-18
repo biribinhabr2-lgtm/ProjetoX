@@ -24,9 +24,6 @@ export default function Convite() {
 
   const [state,   setState]   = useState<PageState>('loading')
   const [message, setMessage] = useState('')
-  // Guarda o org_id do convite para o aviso de conflito
-  const [inviteOrgId, setInviteOrgId] = useState<string | null>(null)
-
   useEffect(() => {
     if (!token) {
       setState('error')

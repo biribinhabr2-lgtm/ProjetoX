@@ -307,7 +307,7 @@ export default function Clientes() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await removeCustomer(deleteTarget.id)
+      await removeCustomer(orgId ?? '', deleteTarget.id)
       toast.success('Cliente removido')
       setDeleteTarget(null)
       void loadCustomers()

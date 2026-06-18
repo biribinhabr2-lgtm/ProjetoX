@@ -186,7 +186,7 @@ export function EventDialog({
         notes:         event.notes ?? '',
       })
       // Carrega itens existentes
-      listEventItems(event.id)
+      listEventItems(orgId, event.id)
         .then((rows) => {
           setHadItemsInDB(rows.length > 0)
           setItems(

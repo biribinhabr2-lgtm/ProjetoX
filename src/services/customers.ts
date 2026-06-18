@@ -189,7 +189,7 @@ export class CustomerHasEventsError extends Error {
  * Lança `CustomerHasEventsError` se houver festas vinculadas (qualquer status),
  * permitindo que a UI ofereça opção de arquivar/apenas cancelar.
  */
-export async function removeCustomer(id: string): Promise<void> {
+export async function removeCustomer(orgId: string, id: string): Promise<void> {
   // Verificar festas vinculadas
   const { count, error: countErr } = await supabase
     .from('events')
@@ -202,7 +202,7 @@ export async function removeCustomer(id: string): Promise<void> {
     throw new CustomerHasEventsError(count!)
   }
 
-  const { error } = await supabase.from('customers').delete().eq('id', id)
+  const { error } = await supabase.from('customers').delete().eq('id', id).eq('org_id', orgId)
   if (error) throw error
 }
 

@@ -212,7 +212,7 @@ export default function OrcamentoPublico() {
             orgName:      quoteData.organization.name,
             customerName: quoteData.customer?.name ?? 'Cliente',
             total:        new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
-                            .format(quoteData.quote.total_cents / 100),
+                            .format((quoteData.quote.total_cents ?? 0) / 100),
           }
         : undefined
       const result = await updatePublicQuoteStatus(token, action, ctx)

@@ -47,6 +47,7 @@ export async function createCatalogItem(
 }
 
 export async function updateCatalogItem(
+  orgId: string,
   id: string,
   payload: Partial<CatalogItemPayload>,
 ): Promise<CatalogItem> {
@@ -54,6 +55,7 @@ export async function updateCatalogItem(
     .from('catalog_items')
     .update(payload)
     .eq('id', id)
+    .eq('org_id', orgId)
     .select('*')
     .single()
 
@@ -62,6 +64,7 @@ export async function updateCatalogItem(
 }
 
 export async function toggleCatalogItemActive(
+  orgId: string,
   id: string,
   active: boolean,
 ): Promise<void> {
@@ -69,27 +72,30 @@ export async function toggleCatalogItemActive(
     .from('catalog_items')
     .update({ active })
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
 }
 
-export async function removeCatalogItem(id: string): Promise<void> {
+export async function removeCatalogItem(orgId: string, id: string): Promise<void> {
   const { error } = await supabase
     .from('catalog_items')
     .delete()
     .eq('id', id)
+    .eq('org_id', orgId)
 
   if (error) throw new Error(error.message)
 }
 
 /** Troca sort_order de dois itens adjacentes (para botões ▲▼). */
 export async function swapCatalogOrder(
+  orgId: string,
   itemA: { id: string; sort_order: number },
   itemB: { id: string; sort_order: number },
 ): Promise<void> {
   const [err1, err2] = await Promise.all([
-    supabase.from('catalog_items').update({ sort_order: itemB.sort_order }).eq('id', itemA.id),
-    supabase.from('catalog_items').update({ sort_order: itemA.sort_order }).eq('id', itemB.id),
+    supabase.from('catalog_items').update({ sort_order: itemB.sort_order }).eq('id', itemA.id).eq('org_id', orgId),
+    supabase.from('catalog_items').update({ sort_order: itemA.sort_order }).eq('id', itemB.id).eq('org_id', orgId),
   ]).then(([r1, r2]) => [r1.error, r2.error])
 
   if (err1) throw new Error(err1.message)

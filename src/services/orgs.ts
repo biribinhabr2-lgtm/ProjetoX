@@ -30,7 +30,7 @@ export async function createOrgWithOwner(
   const baseSlug = slugify(payload.name)
   const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`
 
-  const { data: rpcData, error: rpcError } = await supabase.rpc('create_org_with_owner', {
+  const { error: rpcError } = await supabase.rpc('create_org_with_owner', {
     p_name:        payload.name,
     p_slug:        slug,
     p_city:        payload.city,
@@ -40,7 +40,6 @@ export async function createOrgWithOwner(
 
   if (rpcError) throw rpcError
 
-  const { org_id } = rpcData as { org_id: string }
 
   // Busca os registros criados para retornar tipado
   const result = await getMyOrgAndMembership(_userId)

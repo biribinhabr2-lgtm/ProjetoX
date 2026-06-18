@@ -57,9 +57,10 @@ export function useEvents(orgId: string | undefined, year: number, month: number
   )
 
   const deleteEvent = useCallback(async (id: string): Promise<void> => {
-    await removeEvent(id)
+    if (!orgId) return
+    await removeEvent(orgId, id)
     setEvents((prev) => prev.filter((e) => e.id !== id))
-  }, [])
+  }, [orgId])
 
   const changeStatus = useCallback(
     async (id: string, status: EventStatus): Promise<EventWithDetails> => {

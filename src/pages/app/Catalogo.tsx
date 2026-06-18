@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -177,8 +177,9 @@ interface CatalogDialogProps {
 
 function CatalogDialog({ open, editing, saving, onClose, onSubmit }: CatalogDialogProps) {
   const { register, handleSubmit, setValue, watch, reset, formState: { errors } } =
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- z.coerce.number input type é unknown
     useForm<FormData>({
-      resolver: zodResolver(schema),
+      resolver: zodResolver(schema) as Resolver<FormData, any>,
       defaultValues: { name: '', description: '', price_reais: 0, unit: 'un', category: '' },
     })
 
@@ -377,7 +378,7 @@ export default function Catalogo() {
         category:    data.category?.trim() || null,
       }
       if (editing) {
-        const updated = await updateCatalogItem(editing.id, payload)
+        const updated = await updateCatalogItem(orgId, editing.id, payload)
         setItems((prev) => prev.map((i) => (i.id === updated.id ? updated : i)))
         toast.success('Item atualizado!')
       } else {
@@ -397,7 +398,7 @@ export default function Catalogo() {
 
   async function handleToggle(item: CatalogItem, active: boolean) {
     try {
-      await toggleCatalogItemActive(item.id, active)
+      await toggleCatalogItemActive(orgId ?? '', item.id, active)
       setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, active } : i)))
     } catch {
       toast.error('Erro ao atualizar status')
@@ -408,7 +409,7 @@ export default function Catalogo() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await removeCatalogItem(deleteTarget.id)
+      await removeCatalogItem(orgId ?? '', deleteTarget.id)
       setItems((prev) => prev.filter((i) => i.id !== deleteTarget.id))
       toast.success('Item removido')
       setDeleteTarget(null)
@@ -424,7 +425,7 @@ export default function Catalogo() {
     if (idx <= 0) return
     const prev = items[idx - 1]
     try {
-      await swapCatalogOrder(item, prev)
+      await swapCatalogOrder(orgId ?? '', item, prev)
       setItems((list) => {
         const updated = [...list]
         updated[idx]     = { ...updated[idx],     sort_order: prev.sort_order }
@@ -441,7 +442,7 @@ export default function Catalogo() {
     if (idx < 0 || idx >= items.length - 1) return
     const next = items[idx + 1]
     try {
-      await swapCatalogOrder(item, next)
+      await swapCatalogOrder(orgId ?? '', item, next)
       setItems((list) => {
         const updated = [...list]
         updated[idx]     = { ...updated[idx],     sort_order: next.sort_order }

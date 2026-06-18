@@ -167,8 +167,8 @@ export async function updateTransaction(
   return data as Transaction
 }
 
-export async function removeTransaction(id: string): Promise<void> {
-  const { error } = await supabase.from('transactions').delete().eq('id', id)
+export async function removeTransaction(orgId: string, id: string): Promise<void> {
+  const { error } = await supabase.from('transactions').delete().eq('id', id).eq('org_id', orgId)
   if (error) throw error
 }
 
