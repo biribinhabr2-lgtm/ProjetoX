@@ -51,10 +51,10 @@ interface MembershipRow {
 
 // ── Handler ───────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') return corsPreflightResponse()
+  if (req.method === 'OPTIONS') return corsPreflightResponse(req)
 
   if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405)
+    return jsonResponse({ error: 'Method not allowed' }, 405, {}, req)
   }
 
   try {
@@ -66,13 +66,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (!mpAccessToken || !supabaseUrl || !serviceRoleKey || !appUrl) {
       console.error('create-subscription: missing env vars')
-      return jsonResponse({ error: 'Configuração interna incompleta' }, 500)
+      return jsonResponse({ error: 'Configuração interna incompleta' }, 500, {}, req)
     }
 
     // ── 2. Extrair e verificar JWT ──────────────────────────────────────
     const authHeader = req.headers.get('Authorization') ?? ''
     if (!authHeader.startsWith('Bearer ')) {
-      return jsonResponse({ error: 'Token de autorização ausente' }, 401)
+      return jsonResponse({ error: 'Token de autorização ausente' }, 401, {}, req)
     }
     const jwt = authHeader.slice(7)
 
@@ -83,7 +83,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
     const { data: { user }, error: userError } = await admin.auth.getUser(jwt)
     if (userError || !user) {
       console.warn('create-subscription: invalid JWT:', userError?.message)
-      return jsonResponse({ error: 'Token inválido ou expirado' }, 401)
+      return jsonResponse({ error: 'Token inválido ou expirado' }, 401, {}, req)
     }
 
     // ── 3. Parse e validar body ─────────────────────────────────────────
@@ -91,14 +91,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
     try {
       body = await req.json() as RequestBody
     } catch {
-      return jsonResponse({ error: 'Body JSON inválido' }, 400)
+      return jsonResponse({ error: 'Body JSON inválido' }, 400, {}, req)
     }
 
     const { plan } = body
     if (typeof plan !== 'string' || !PLAN_PRICES[plan]) {
       return jsonResponse(
         { error: 'Plano inválido. Valores aceitos: essencial, profissional, rede' },
-        400,
+        400, {}, req,
       )
     }
 
@@ -112,12 +112,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     if (membershipError) {
       console.error('create-subscription: membership query error:', membershipError)
-      return jsonResponse({ error: 'Erro ao verificar permissão' }, 500)
+      return jsonResponse({ error: 'Erro ao verificar permissão' }, 500, {}, req)
     }
 
     const membership = membershipData as MembershipRow | null
     if (!membership) {
-      return jsonResponse({ error: 'Usuário não é owner de nenhuma organização' }, 403)
+      return jsonResponse({ error: 'Usuário não é owner de nenhuma organização' }, 403, {}, req)
     }
     const orgId: string = membership.org_id
 
@@ -147,7 +147,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
       console.error('create-subscription: MP API error:', mpResult.status, mpResult.message)
       return jsonResponse(
         { error: `Erro ao criar assinatura no Mercado Pago: ${mpResult.message}` },
-        502,
+        502, {}, req,
       )
     }
 
@@ -175,10 +175,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return jsonResponse({
       init_point:      preapproval.init_point,
       subscription_id: preapproval.id,
-    })
+    }, 200, {}, req)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro interno inesperado'
     console.error('create-subscription: unhandled exception:', message)
-    return jsonResponse({ error: message }, 500)
+    return jsonResponse({ error: message }, 500, {}, req)
   }
 })

@@ -23,6 +23,8 @@ interface Payload {
   to?: string
   template: Template
   data: Record<string, string>
+  /** Obrigatório apenas para orcamento-aceito: UUID público do orçamento (prova de que o chamador é legítimo) */
+  quote_token?: string
 }
 
 // ── Templates HTML ─────────────────────────────────────────────────────────────
@@ -265,7 +267,7 @@ Deno.serve(async (req) => {
     const SUPABASE_URL         = Deno.env.get('SUPABASE_URL') ?? ''
     const SERVICE_ROLE_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
-    const { to, template, data } = (await req.json()) as Payload
+    const { to, template, data, quote_token } = (await req.json()) as Payload
 
     const ALLOWED: Template[] = ['boas-vindas', 'trial-acabando', 'orcamento-aceito']
     if (!template || !ALLOWED.includes(template)) {
@@ -279,7 +281,26 @@ Deno.serve(async (req) => {
       const orgId = data?.org_id
       if (!orgId) return jsonResponse({ error: 'org_id obrigatório para orcamento-aceito' }, 400)
 
+      // Valida quote_token para provar que o chamador tem acesso ao orçamento
+      // (evita que qualquer pessoa dispare e-mails para owners de orgs arbitrárias)
+      if (!quote_token) {
+        return jsonResponse({ error: 'quote_token obrigatório para orcamento-aceito' }, 400)
+      }
+
       const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
+
+      // Confirma que o token pertence ao org_id informado
+      const { data: quoteRow } = await admin
+        .from('quotes')
+        .select('id')
+        .eq('public_token', quote_token)
+        .eq('org_id', orgId)
+        .maybeSingle()
+
+      if (!quoteRow) {
+        console.warn('[send-email] quote_token inválido para org', orgId)
+        return jsonResponse({ error: 'quote_token inválido' }, 403)
+      }
 
       // Busca o owner da org
       const { data: membership, error: memErr } = await admin

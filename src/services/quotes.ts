@@ -146,7 +146,8 @@ export async function updatePublicQuoteStatus(
   // Notifica o dono do buffet quando o cliente aceita — fire-and-forget
   if (status === 'aceito' && result.ok && ctx) {
     void sendEmail({
-      template: 'orcamento-aceito',
+      template:    'orcamento-aceito',
+      quote_token: token,
       data: {
         org_id:        ctx.orgId,
         org_name:      ctx.orgName,

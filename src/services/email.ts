@@ -17,6 +17,8 @@ interface SendEmailPayload {
   to?: string
   template: EmailTemplate
   data: Record<string, string>
+  /** Obrigatório para orcamento-aceito: UUID público do orçamento */
+  quote_token?: string
 }
 
 export async function sendEmail(payload: SendEmailPayload): Promise<void> {

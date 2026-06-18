@@ -15,7 +15,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 // @deno-types="https://esm.sh/@supabase/supabase-js@2/dist/module/index.d.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { corsHeaders, corsPreflightResponse, jsonResponse } from '../_shared/cors.ts'
+import { corsPreflightResponse, jsonResponse } from '../_shared/cors.ts'
 
 const PLAN_MEMBER_LIMITS: Record<string, number> = {
   trial:        1,
@@ -25,8 +25,8 @@ const PLAN_MEMBER_LIMITS: Record<string, number> = {
 }
 
 serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return corsPreflightResponse()
-  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405)
+  if (req.method === 'OPTIONS') return corsPreflightResponse(req)
+  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405, {}, req)
 
   const supabaseUrl    = Deno.env.get('SUPABASE_URL')!
   const serviceKey     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -34,21 +34,21 @@ serve(async (req: Request) => {
 
   // ── Autenticar chamador via JWT ──────────────────────────────
   const jwt = req.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!jwt) return jsonResponse({ error: 'Unauthorized' }, 401)
+  if (!jwt) return jsonResponse({ error: 'Unauthorized' }, 401, {}, req)
 
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
   })
   const { data: { user: caller }, error: authErr } = await callerClient.auth.getUser()
-  if (authErr || !caller) return jsonResponse({ error: 'Unauthorized' }, 401)
+  if (authErr || !caller) return jsonResponse({ error: 'Unauthorized' }, 401, {}, req)
 
   // ── Validar payload ──────────────────────────────────────────
   let body: { email?: string; role?: string; org_id?: string }
   try { body = await req.json() }
-  catch { return jsonResponse({ error: 'Invalid JSON' }, 400) }
+  catch { return jsonResponse({ error: 'Invalid JSON' }, 400, {}, req) }
 
   const { email, role, org_id } = body
-  if (!email || !org_id) return jsonResponse({ error: 'email e org_id são obrigatórios' }, 400)
+  if (!email || !org_id) return jsonResponse({ error: 'email e org_id são obrigatórios' }, 400, {}, req)
 
   const inviteRole = ['admin', 'atendente'].includes(role ?? '') ? role! : 'atendente'
 
@@ -63,7 +63,7 @@ serve(async (req: Request) => {
     .maybeSingle()
 
   if (!callerMembership || !['owner', 'admin'].includes(callerMembership.role)) {
-    return jsonResponse({ error: 'Sem permissão para convidar membros nesta organização' }, 403)
+    return jsonResponse({ error: 'Sem permissão para convidar membros nesta organização' }, 403, {}, req)
   }
 
   // ── Verificar limite de membros do plano ─────────────────────
@@ -83,7 +83,7 @@ serve(async (req: Request) => {
     if ((count ?? 0) >= planLimit) {
       return jsonResponse({
         error: `Limite de ${planLimit} membro(s) atingido para o plano ${org?.plan}. Faça upgrade para adicionar mais.`,
-      }, 400)
+      }, 400, {}, req)
     }
   }
 
@@ -99,7 +99,7 @@ serve(async (req: Request) => {
       .maybeSingle()
 
     if (existingMembership) {
-      return jsonResponse({ error: 'Este usuário já é membro da organização.' }, 400)
+      return jsonResponse({ error: 'Este usuário já é membro da organização.' }, 400, {}, req)
     }
 
     // Usuário já existe no sistema: só cria o membership
@@ -108,7 +108,7 @@ serve(async (req: Request) => {
       user_id: alreadyUser.id,
       role: inviteRole,
     })
-    return jsonResponse({ ok: true, existing_user: true })
+    return jsonResponse({ ok: true, existing_user: true }, 200, {}, req)
   }
 
   // ── Convidar novo usuário ────────────────────────────────────
@@ -116,7 +116,7 @@ serve(async (req: Request) => {
     data: { pending_org_id: org_id, pending_role: inviteRole },
   })
 
-  if (inviteErr) return jsonResponse({ error: inviteErr.message }, 400)
+  if (inviteErr) return jsonResponse({ error: inviteErr.message }, 400, {}, req)
 
-  return jsonResponse({ ok: true })
+  return jsonResponse({ ok: true }, 200, {}, req)
 })

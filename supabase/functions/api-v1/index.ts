@@ -349,7 +349,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
       .range(offset, offset + limit - 1)
 
     if (search.trim()) {
-      q = q.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
+      // Sanitiza o termo para evitar injeção de operadores PostgREST
+      const term = search.replace(/[(),]/g, '').trim()
+      if (term) q = q.or(`name.ilike.%${term}%,phone.ilike.%${term}%,email.ilike.%${term}%`)
     }
 
     const { data, error } = await q
