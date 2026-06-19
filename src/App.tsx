@@ -20,6 +20,7 @@ import Catalogo from '@/pages/app/Catalogo'
 import Equipe from '@/pages/app/Equipe'
 import Escala from '@/pages/app/Escala'
 import Admin from '@/pages/app/Admin'
+import Eventos from '@/pages/app/Eventos'
 import OrcamentoPublico from '@/pages/OrcamentoPublico'
 import Convite from '@/pages/Convite'
 import Termos from '@/pages/Termos'
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="configuracoes" element={<Configuracoes />} />
           <Route path="indique" element={<Indique />} />
           <Route path="admin" element={<Admin />} />
+          <Route path="eventos" element={<Eventos />} />
         </Route>
       </Routes>
       <Toaster richColors position="top-right" />

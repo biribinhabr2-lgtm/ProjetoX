@@ -143,6 +143,33 @@ export async function confirmEventWithTransactions(
   return updated
 }
 
+// ── Listar eventos fechados (realizada + cancelada) ──────────
+export async function listClosed(
+  orgId: string,
+  search?: string,
+): Promise<EventWithDetails[]> {
+  const { data, error } = await supabase
+    .from('events')
+    .select(EVENT_SELECT)
+    .eq('org_id', orgId)
+    .in('status', ['realizada', 'cancelada'])
+    .order('date', { ascending: false })
+    .order('start_time', { ascending: false })
+
+  if (error) throw error
+
+  const rows = (data as EventRow[]).map(rowToDetails)
+
+  if (!search) return rows
+
+  const q = search.toLowerCase()
+  return rows.filter(
+    (e) =>
+      e.customer.name.toLowerCase().includes(q) ||
+      (e.title ?? '').toLowerCase().includes(q),
+  )
+}
+
 // ── Detectar conflito de horário ─────────────────────────────
 export async function detectConflicts(opts: {
   orgId: string
