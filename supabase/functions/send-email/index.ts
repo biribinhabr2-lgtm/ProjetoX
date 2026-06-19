@@ -10,6 +10,12 @@
  *   trial-acabando   — disparo via cron (documentado no README); to + data.{ name, org_name, days_left }
  *   orcamento-aceito — fluxo público; data.{ org_id, customer_name, org_name, total }
  *                      O e-mail do dono é buscado internamente via service role.
+ *
+ * Política de erros:
+ *   - Falhas de envio (Resend down, domínio não verificado, API key ausente)
+ *     → sempre retorna HTTP 200 com { ok: true, emailed: false, reason: "..." }
+ *   - Erros de entrada do chamador (template inválido, token inválido)
+ *     → retorna 4xx normalmente
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -225,29 +231,43 @@ ${ctaButton(`${BASE_URL}/app/orcamentos`, 'Abrir no FestaHub')}
 
 // ── Envio via Resend REST API ─────────────────────────────────────────────────
 
+interface SendResult {
+  emailed: boolean
+  reason?: string
+}
+
 async function sendViaResend(
   to: string,
   subject: string,
   html: string,
   apiKey: string,
-): Promise<void> {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'FestaHub <onboarding@resend.dev>',
-      to: [to],
-      subject,
-      html,
-    }),
-  })
+): Promise<SendResult> {
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: 'FestaHub <onboarding@resend.dev>',
+        to: [to],
+        subject,
+        html,
+      }),
+    })
 
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => '(sem corpo)')
-    throw new Error(`Resend ${res.status}: ${errBody}`)
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '(sem corpo)')
+      console.error(`[send-email] Resend retornou HTTP ${res.status}: ${errBody}`)
+      return { emailed: false, reason: `resend_${res.status}` }
+    }
+
+    return { emailed: true }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('[send-email] Resend falha de rede:', msg)
+    return { emailed: false, reason: 'network_error' }
   }
 }
 
@@ -257,39 +277,53 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return corsPreflightResponse()
   if (req.method !== 'POST') return jsonResponse({ error: 'Método não permitido' }, 405)
 
+  // Falha de API key → nunca derruba o fluxo do usuário
+  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+  if (!RESEND_API_KEY) {
+    console.error('[send-email] RESEND_API_KEY ausente nos secrets — e-mail não enviado')
+    return jsonResponse({ ok: true, emailed: false, reason: 'missing_api_key' })
+  }
+
+  const SUPABASE_URL     = Deno.env.get('SUPABASE_URL') ?? ''
+  const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+
+  let payload: Payload
   try {
-    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
-    if (!RESEND_API_KEY) {
-      console.error('[send-email] RESEND_API_KEY não configurado')
-      return jsonResponse({ error: 'Serviço de e-mail não configurado' }, 503)
+    payload = (await req.json()) as Payload
+  } catch {
+    console.error('[send-email] corpo JSON inválido')
+    return jsonResponse({ ok: true, emailed: false, reason: 'invalid_payload' })
+  }
+
+  const { to, template, data, quote_token } = payload
+
+  const ALLOWED: Template[] = ['boas-vindas', 'trial-acabando', 'orcamento-aceito']
+  if (!template || !ALLOWED.includes(template)) {
+    return jsonResponse({ error: 'Template inválido' }, 400)
+  }
+
+  // ── Valida payload mínimo por template ──────────────────────
+  if (template === 'boas-vindas') {
+    if (!to || !data?.name) {
+      console.warn('[send-email] boas-vindas sem to ou data.name — e-mail ignorado')
+      return jsonResponse({ ok: true, emailed: false, reason: 'invalid_payload' })
+    }
+  }
+
+  // ── Resolve destinatário ─────────────────────────────────────
+  let toAddress = to ?? ''
+
+  if (template === 'orcamento-aceito') {
+    const orgId = data?.org_id
+    if (!orgId) return jsonResponse({ error: 'org_id obrigatório para orcamento-aceito' }, 400)
+
+    if (!quote_token) {
+      return jsonResponse({ error: 'quote_token obrigatório para orcamento-aceito' }, 400)
     }
 
-    const SUPABASE_URL         = Deno.env.get('SUPABASE_URL') ?? ''
-    const SERVICE_ROLE_KEY     = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-
-    const { to, template, data, quote_token } = (await req.json()) as Payload
-
-    const ALLOWED: Template[] = ['boas-vindas', 'trial-acabando', 'orcamento-aceito']
-    if (!template || !ALLOWED.includes(template)) {
-      return jsonResponse({ error: 'Template inválido' }, 400)
-    }
-
-    // ── Resolve destinatário ────────────────────────────────────────────────
-    let toAddress = to ?? ''
-
-    if (template === 'orcamento-aceito') {
-      const orgId = data?.org_id
-      if (!orgId) return jsonResponse({ error: 'org_id obrigatório para orcamento-aceito' }, 400)
-
-      // Valida quote_token para provar que o chamador tem acesso ao orçamento
-      // (evita que qualquer pessoa dispare e-mails para owners de orgs arbitrárias)
-      if (!quote_token) {
-        return jsonResponse({ error: 'quote_token obrigatório para orcamento-aceito' }, 400)
-      }
-
+    try {
       const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
-      // Confirma que o token pertence ao org_id informado
       const { data: quoteRow } = await admin
         .from('quotes')
         .select('id')
@@ -302,7 +336,6 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'quote_token inválido' }, 403)
       }
 
-      // Busca o owner da org
       const { data: membership, error: memErr } = await admin
         .from('memberships')
         .select('user_id')
@@ -315,7 +348,6 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'Organização não encontrada' }, 404)
       }
 
-      // Busca e-mail do owner via Admin API
       const { data: authData, error: authErr } = await admin.auth.admin.getUserById(
         membership.user_id as string,
       )
@@ -326,38 +358,44 @@ Deno.serve(async (req) => {
       }
 
       toAddress = authData.user.email
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[send-email] erro ao resolver destinatário orcamento-aceito:', msg)
+      return jsonResponse({ ok: true, emailed: false, reason: 'internal_error' })
     }
-
-    if (!toAddress) {
-      return jsonResponse({ error: 'Destinatário (to) não informado' }, 400)
-    }
-
-    // ── Renderiza template ──────────────────────────────────────────────────
-    let subject = ''
-    let html = ''
-
-    switch (template) {
-      case 'boas-vindas':
-        subject = `🎉 Bem-vindo ao FestaHub, ${data?.name ?? 'parceiro'}!`
-        html = renderBoasVindas(data ?? {})
-        break
-      case 'trial-acabando':
-        subject = `⚠️ Seu trial termina em ${data?.days_left ?? '3'} dias — FestaHub`
-        html = renderTrialAcabando(data ?? {})
-        break
-      case 'orcamento-aceito':
-        subject = `✅ ${data?.customer_name ?? 'Cliente'} aceitou o orçamento!`
-        html = renderOrcamentoAceito(data ?? {})
-        break
-    }
-
-    await sendViaResend(toAddress, subject, html, RESEND_API_KEY)
-
-    console.log(`[send-email] template=${template} to=${toAddress}`)
-    return jsonResponse({ ok: true })
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erro interno'
-    console.error('[send-email] erro:', msg)
-    return jsonResponse({ error: msg }, 500)
   }
+
+  if (!toAddress) {
+    console.warn('[send-email] destinatário vazio — e-mail ignorado')
+    return jsonResponse({ ok: true, emailed: false, reason: 'invalid_payload' })
+  }
+
+  // ── Renderiza template ───────────────────────────────────────
+  let subject = ''
+  let html = ''
+
+  switch (template) {
+    case 'boas-vindas':
+      subject = `🎉 Bem-vindo ao FestaHub, ${data?.name ?? 'parceiro'}!`
+      html = renderBoasVindas(data ?? {})
+      break
+    case 'trial-acabando':
+      subject = `⚠️ Seu trial termina em ${data?.days_left ?? '3'} dias — FestaHub`
+      html = renderTrialAcabando(data ?? {})
+      break
+    case 'orcamento-aceito':
+      subject = `✅ ${data?.customer_name ?? 'Cliente'} aceitou o orçamento!`
+      html = renderOrcamentoAceito(data ?? {})
+      break
+  }
+
+  // ── Envia via Resend — nunca lança exceção para o chamador ───
+  const result = await sendViaResend(toAddress, subject, html, RESEND_API_KEY)
+
+  if (result.emailed) {
+    console.log(`[send-email] enviado template=${template} to=${toAddress}`)
+    return jsonResponse({ ok: true, emailed: true })
+  }
+
+  return jsonResponse({ ok: true, emailed: false, reason: result.reason })
 })

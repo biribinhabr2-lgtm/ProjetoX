@@ -5,8 +5,10 @@
  * O RESEND_API_KEY NUNCA toca o bundle do frontend — fica exclusivamente
  * no servidor como Supabase Secret.
  *
- * Padrão fire-and-forget: erros são logados, não lançados, para não
- * bloquear o fluxo principal (onboarding, aceite de orçamento).
+ * Padrão fire-and-forget: erros são logados em warn, nunca lançados,
+ * para não bloquear o fluxo principal (onboarding, aceite de orçamento).
+ * A Edge Function sempre retorna HTTP 200 — erros de envio chegam via
+ * { ok: true, emailed: false, reason: "..." }.
  */
 
 import { supabase } from '@/lib/supabase'
@@ -22,12 +24,18 @@ interface SendEmailPayload {
 }
 
 export async function sendEmail(payload: SendEmailPayload): Promise<void> {
-  const { error } = await supabase.functions.invoke('send-email', {
+  const { data, error } = await supabase.functions.invoke('send-email', {
     body: payload,
   })
 
   if (error) {
-    // Fire-and-forget: loga mas não propaga — nunca bloqueia o fluxo do usuário.
-    console.warn('[email] falha ao enviar', payload.template, error.message)
+    // Não deve ocorrer com a versão atual da Edge Function (sempre retorna 200),
+    // mas protege caso haja erro de rede ou timeout.
+    console.warn('[email] invocação falhou', payload.template, error.message)
+    return
+  }
+
+  if (data && data.emailed === false) {
+    console.warn('[email] e-mail não enviado', payload.template, data.reason ?? '')
   }
 }
