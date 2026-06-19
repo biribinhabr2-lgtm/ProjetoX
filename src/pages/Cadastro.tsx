@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label'
 import { signUp } from '@/services/auth'
 import { trackCadastroIniciado } from '@/lib/analytics'
 
-const schema = z
+// ─── Schema normal (sem convite) ────────────────────────────
+const schemaBase = z
   .object({
     fullName: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
     email: z.string().email('E-mail inválido'),
@@ -23,10 +24,25 @@ const schema = z
     path: ['confirmPassword'],
   })
 
-type FormData = z.infer<typeof schema>
+// ─── Schema convite (com celular obrigatório) ────────────────
+const schemaInvite = z
+  .object({
+    fullName: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
+    email: z.string().email('E-mail inválido'),
+    phone: z.string().min(10, 'Celular deve ter pelo menos 10 dígitos'),
+    password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: 'As senhas não coincidem',
+    path: ['confirmPassword'],
+  })
+
+type FormDataBase   = z.infer<typeof schemaBase>
+type FormDataInvite = z.infer<typeof schemaInvite>
 
 // ─── Painel decorativo – variante do login ──────────────────
-function BrandPanel() {
+function BrandPanel({ inviteMode }: { inviteMode: boolean }) {
   return (
     <div
       className="relative hidden flex-col justify-between overflow-hidden p-10 lg:flex"
@@ -67,33 +83,49 @@ function BrandPanel() {
       </div>
 
       <div className="relative">
-        <h2
-          className="text-3xl font-bold leading-tight text-white"
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          14 dias grátis, sem cartão de crédito
-        </h2>
-        <p className="mt-4 text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>
-          Comece agora e transforme a gestão do seu buffet. Cadastro em menos de 1 minuto.
-        </p>
+        {inviteMode ? (
+          <>
+            <h2
+              className="text-3xl font-bold leading-tight text-white"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              Você foi convidado para uma equipe!
+            </h2>
+            <p className="mt-4 text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>
+              Crie sua conta para aceitar o convite e acessar o buffet.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2
+              className="text-3xl font-bold leading-tight text-white"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
+              14 dias grátis, sem cartão de crédito
+            </h2>
+            <p className="mt-4 text-base leading-relaxed" style={{ color: 'rgba(255,255,255,0.72)' }}>
+              Comece agora e transforme a gestão do seu buffet. Cadastro em menos de 1 minuto.
+            </p>
 
-        <div className="mt-8 grid grid-cols-2 gap-4">
-          {[
-            { num: '500+', label: 'Buffets ativos' },
-            { num: '10k+', label: 'Festas realizadas' },
-            { num: '4.9★', label: 'Avaliação média' },
-            { num: '100%', label: 'Seguro e na nuvem' },
-          ].map(({ num, label }) => (
-            <div key={label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.08)' }}>
-              <p className="text-xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>
-                {num}
-              </p>
-              <p className="mt-0.5 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                {label}
-              </p>
+            <div className="mt-8 grid grid-cols-2 gap-4">
+              {[
+                { num: '500+', label: 'Buffets ativos' },
+                { num: '10k+', label: 'Festas realizadas' },
+                { num: '4.9★', label: 'Avaliação média' },
+                { num: '100%', label: 'Seguro e na nuvem' },
+              ].map(({ num, label }) => (
+                <div key={label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.08)' }}>
+                  <p className="text-xl font-bold text-white" style={{ fontFamily: 'var(--font-display)' }}>
+                    {num}
+                  </p>
+                  <p className="mt-0.5 text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    {label}
+                  </p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
 
       <p className="relative text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
@@ -109,19 +141,29 @@ export default function Cadastro() {
   const [searchParams] = useSearchParams()
   const [submitting, setSubmitting] = useState(false)
 
+  // ?invite=TOKEN → modo convite
+  const inviteToken = searchParams.get('invite') ?? ''
+  const inviteMode  = inviteToken.length > 0
+
   // Captura ?ref= e persiste para o onboarding usar
   useEffect(() => {
     const ref = searchParams.get('ref')
     if (ref) sessionStorage.setItem('festahub_ref', ref)
   }, [searchParams])
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema), mode: 'onBlur' })
+  // ─── Formulário base ───────────────────────────────────────
+  const baseForm = useForm<FormDataBase>({
+    resolver: zodResolver(schemaBase),
+    mode: 'onBlur',
+  })
 
-  async function onSubmit(data: FormData) {
+  // ─── Formulário convite ────────────────────────────────────
+  const inviteForm = useForm<FormDataInvite>({
+    resolver: zodResolver(schemaInvite),
+    mode: 'onBlur',
+  })
+
+  async function onSubmitBase(data: FormDataBase) {
     trackCadastroIniciado()
     setSubmitting(true)
     try {
@@ -129,8 +171,21 @@ export default function Cadastro() {
       toast.success('Conta criada! Verifique seu e-mail para confirmar o cadastro.')
       navigate('/login', { replace: true })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao cadastrar'
-      toast.error(traduzirErroAuth(msg))
+      toast.error(traduzirErroAuth(err instanceof Error ? err.message : 'Erro ao cadastrar'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function onSubmitInvite(data: FormDataInvite) {
+    trackCadastroIniciado()
+    setSubmitting(true)
+    try {
+      await signUp(data.email, data.password, data.fullName, data.phone)
+      toast.success('Conta criada! Verifique seu e-mail e volte para aceitar o convite.')
+      navigate(`/login?next=/convite/${inviteToken}`, { replace: true })
+    } catch (err: unknown) {
+      toast.error(traduzirErroAuth(err instanceof Error ? err.message : 'Erro ao cadastrar'))
     } finally {
       setSubmitting(false)
     }
@@ -138,7 +193,7 @@ export default function Cadastro() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <BrandPanel />
+      <BrandPanel inviteMode={inviteMode} />
 
       <div className="flex flex-col items-center justify-center bg-background px-6 py-12">
         {/* Mobile logo */}
@@ -160,83 +215,179 @@ export default function Cadastro() {
               className="text-2xl font-bold text-foreground"
               style={{ fontFamily: 'var(--font-display)' }}
             >
-              Criar sua conta
+              {inviteMode ? 'Criar sua conta' : 'Criar sua conta'}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Comece grátis, sem precisar de cartão
+              {inviteMode
+                ? 'Preencha seus dados para entrar na equipe'
+                : 'Comece grátis, sem precisar de cartão'}
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-            <div className="space-y-1.5">
-              <Label htmlFor="fullName" className="text-sm font-medium">Nome completo</Label>
-              <Input
-                id="fullName"
-                type="text"
-                autoComplete="name"
-                placeholder="Maria Silva"
-                className="h-11 rounded-lg"
-                {...register('fullName')}
-              />
-              {errors.fullName && (
-                <p className="text-xs text-destructive">{errors.fullName.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="seu@email.com"
-                className="h-11 rounded-lg"
-                {...register('email')}
-              />
-              {errors.email && (
-                <p className="text-xs text-destructive">{errors.email.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Mínimo 6 caracteres"
-                className="h-11 rounded-lg"
-                {...register('password')}
-              />
-              {errors.password && (
-                <p className="text-xs text-destructive">{errors.password.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirmar senha</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Repita a senha"
-                className="h-11 rounded-lg"
-                {...register('confirmPassword')}
-              />
-              {errors.confirmPassword && (
-                <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
-              )}
-            </div>
-
-            <Button
-              type="submit"
-              className="h-11 w-full rounded-lg text-sm font-semibold transition-all active:scale-[0.98]"
-              disabled={submitting}
+          {inviteMode ? (
+            /* ─── Formulário convite (com celular, sem nome de buffet) ─ */
+            <form
+              onSubmit={inviteForm.handleSubmit(onSubmitInvite)}
+              className="space-y-4"
+              noValidate
             >
-              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {submitting ? 'Criando conta…' : 'Criar conta grátis'}
-            </Button>
-          </form>
+              <div className="space-y-1.5">
+                <Label htmlFor="fullName-inv" className="text-sm font-medium">Nome completo</Label>
+                <Input
+                  id="fullName-inv"
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Maria Silva"
+                  className="h-11 rounded-lg"
+                  {...inviteForm.register('fullName')}
+                />
+                {inviteForm.formState.errors.fullName && (
+                  <p className="text-xs text-destructive">{inviteForm.formState.errors.fullName.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="email-inv" className="text-sm font-medium">E-mail</Label>
+                <Input
+                  id="email-inv"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="seu@email.com"
+                  className="h-11 rounded-lg"
+                  {...inviteForm.register('email')}
+                />
+                {inviteForm.formState.errors.email && (
+                  <p className="text-xs text-destructive">{inviteForm.formState.errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="phone-inv" className="text-sm font-medium">Celular</Label>
+                <Input
+                  id="phone-inv"
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="(11) 99999-9999"
+                  className="h-11 rounded-lg"
+                  {...inviteForm.register('phone')}
+                />
+                {inviteForm.formState.errors.phone && (
+                  <p className="text-xs text-destructive">{inviteForm.formState.errors.phone.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="password-inv" className="text-sm font-medium">Senha</Label>
+                <Input
+                  id="password-inv"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Mínimo 6 caracteres"
+                  className="h-11 rounded-lg"
+                  {...inviteForm.register('password')}
+                />
+                {inviteForm.formState.errors.password && (
+                  <p className="text-xs text-destructive">{inviteForm.formState.errors.password.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword-inv" className="text-sm font-medium">Confirmar senha</Label>
+                <Input
+                  id="confirmPassword-inv"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Repita a senha"
+                  className="h-11 rounded-lg"
+                  {...inviteForm.register('confirmPassword')}
+                />
+                {inviteForm.formState.errors.confirmPassword && (
+                  <p className="text-xs text-destructive">{inviteForm.formState.errors.confirmPassword.message}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-lg text-sm font-semibold transition-all active:scale-[0.98]"
+                disabled={submitting}
+              >
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting ? 'Criando conta…' : 'Criar conta e aceitar convite'}
+              </Button>
+            </form>
+          ) : (
+            /* ─── Formulário normal ─────────────────────────────────── */
+            <form onSubmit={baseForm.handleSubmit(onSubmitBase)} className="space-y-4" noValidate>
+              <div className="space-y-1.5">
+                <Label htmlFor="fullName" className="text-sm font-medium">Nome completo</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Maria Silva"
+                  className="h-11 rounded-lg"
+                  {...baseForm.register('fullName')}
+                />
+                {baseForm.formState.errors.fullName && (
+                  <p className="text-xs text-destructive">{baseForm.formState.errors.fullName.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="seu@email.com"
+                  className="h-11 rounded-lg"
+                  {...baseForm.register('email')}
+                />
+                {baseForm.formState.errors.email && (
+                  <p className="text-xs text-destructive">{baseForm.formState.errors.email.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Mínimo 6 caracteres"
+                  className="h-11 rounded-lg"
+                  {...baseForm.register('password')}
+                />
+                {baseForm.formState.errors.password && (
+                  <p className="text-xs text-destructive">{baseForm.formState.errors.password.message}</p>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword" className="text-sm font-medium">Confirmar senha</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Repita a senha"
+                  className="h-11 rounded-lg"
+                  {...baseForm.register('confirmPassword')}
+                />
+                {baseForm.formState.errors.confirmPassword && (
+                  <p className="text-xs text-destructive">{baseForm.formState.errors.confirmPassword.message}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
+                className="h-11 w-full rounded-lg text-sm font-semibold transition-all active:scale-[0.98]"
+                disabled={submitting}
+              >
+                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {submitting ? 'Criando conta…' : 'Criar conta grátis'}
+              </Button>
+            </form>
+          )}
 
           <p className="mt-4 text-center text-xs text-muted-foreground">
             Ao criar conta, você concorda com os{' '}
@@ -247,7 +398,10 @@ export default function Cadastro() {
 
           <p className="mt-5 text-center text-sm text-muted-foreground">
             Já tem conta?{' '}
-            <Link to="/login" className="font-semibold text-primary hover:text-primary-hover">
+            <Link
+              to={inviteMode ? `/login?next=/convite/${inviteToken}` : '/login'}
+              className="font-semibold text-primary hover:text-primary-hover"
+            >
               Entrar
             </Link>
           </p>

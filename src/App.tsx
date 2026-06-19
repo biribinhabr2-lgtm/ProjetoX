@@ -23,6 +23,7 @@ import Admin from '@/pages/app/Admin'
 import Eventos from '@/pages/app/Eventos'
 import OrcamentoPublico from '@/pages/OrcamentoPublico'
 import Convite from '@/pages/Convite'
+import SemAcesso from '@/pages/SemAcesso'
 import Termos from '@/pages/Termos'
 import Privacidade from '@/pages/Privacidade'
 
@@ -45,6 +46,7 @@ export default function App() {
         {/* Rotas públicas — sem ProtectedRoute, sem authStore */}
         <Route path="/orcamento/:token" element={<OrcamentoPublico />} />
         <Route path="/convite/:token" element={<Convite />} />
+        <Route path="/sem-acesso" element={<SemAcesso />} />
         <Route path="/termos" element={<Termos />} />
         <Route path="/privacidade" element={<Privacidade />} />
         <Route

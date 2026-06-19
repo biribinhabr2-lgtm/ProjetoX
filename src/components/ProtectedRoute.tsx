@@ -5,6 +5,15 @@ interface Props {
   children: React.ReactNode
 }
 
+function hasDeclinedInvites(): boolean {
+  try {
+    const list = JSON.parse(localStorage.getItem('fh_declined_invites') ?? '[]') as unknown[]
+    return Array.isArray(list) && list.length > 0
+  } catch {
+    return false
+  }
+}
+
 export function ProtectedRoute({ children }: Props) {
   const { session, organization, loading } = useAuthStore()
 
@@ -29,7 +38,12 @@ export function ProtectedRoute({ children }: Props) {
   }
 
   if (!session) return <Navigate to="/login" replace />
-  if (!organization) return <Navigate to="/onboarding" replace />
+
+  if (!organization) {
+    // Usuário que recusou um convite → página de "sem acesso" (não onboarding)
+    if (hasDeclinedInvites()) return <Navigate to="/sem-acesso" replace />
+    return <Navigate to="/onboarding" replace />
+  }
 
   return <>{children}</>
 }

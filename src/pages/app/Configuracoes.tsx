@@ -1054,6 +1054,9 @@ function MembersSection() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="truncate text-sm font-medium">{profile.full_name ?? 'Usuário'}</p>
+                {profile.phone && (
+                  <p className="truncate text-xs text-muted-foreground">{profile.phone}</p>
+                )}
               </div>
               <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium">
                 {ROLE_LABELS[m.role] ?? m.role}

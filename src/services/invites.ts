@@ -11,6 +11,12 @@ export interface OrgInvite {
   used_at: string | null
 }
 
+export interface InvitePreview {
+  org_id: string
+  org_name: string
+  role: InviteRole
+}
+
 /** Cria um convite de 7 dias para a organização. */
 export async function createInvite(
   orgId: string,
@@ -26,6 +32,13 @@ export async function createInvite(
   return data as OrgInvite
 }
 
+/** Retorna o nome do buffet e o papel do convite sem consumir o token (anon-ok). */
+export async function getInvitePreview(token: string): Promise<InvitePreview> {
+  const { data, error } = await supabase.rpc('get_invite_preview', { p_token: token })
+  if (error) throw error
+  return data as InvitePreview
+}
+
 /** Aceita um convite via token. Requer usuário autenticado. */
 export async function acceptInvite(
   token: string,
@@ -33,4 +46,10 @@ export async function acceptInvite(
   const { data, error } = await supabase.rpc('accept_invite', { p_token: token })
   if (error) throw error
   return data as { org_id: string; already_member: boolean }
+}
+
+/** Recusa um convite via token. Requer usuário autenticado. */
+export async function declineInvite(token: string): Promise<void> {
+  const { error } = await supabase.rpc('decline_invite', { p_token: token })
+  if (error) throw error
 }
