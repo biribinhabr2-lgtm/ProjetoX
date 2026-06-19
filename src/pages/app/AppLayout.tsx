@@ -37,22 +37,28 @@ import { signOut } from '@/services/auth'
 import { updateProfile } from '@/services/profiles'
 import { usePlan } from '@/hooks/usePlan'
 import { useIsPlatformAdmin } from '@/hooks/useIsPlatformAdmin'
+import { useRole } from '@/hooks/useRole'
 import { supportWhatsAppLink } from '@/lib/constants'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-const BASE_NAV_ITEMS = [
-  { to: '/app/agenda',        label: 'Agenda',        icon: Calendar      },
-  { to: '/app/clientes',      label: 'Clientes',      icon: Users         },
-  { to: '/app/orcamentos',    label: 'Orçamentos',    icon: FileText      },
-  { to: '/app/catalogo',      label: 'Catálogo',      icon: Package       },
-  { to: '/app/financeiro',    label: 'Financeiro',    icon: DollarSign    },
-  { to: '/app/equipe',        label: 'Equipe',        icon: Users2        },
-  { to: '/app/escala',        label: 'Escala',        icon: ClipboardList },
-  { to: '/app/eventos',       label: 'Eventos',       icon: Archive       },
-  { to: '/app/indique',       label: 'Indicar',       icon: Gift          },
-  { to: '/app/configuracoes', label: 'Configurações', icon: Settings      },
+// Itens visíveis para todos os membros (incluindo atendente)
+const ATENDENTE_NAV_ITEMS = [
+  { to: '/app/agenda',     label: 'Agenda',      icon: Calendar      },
+  { to: '/app/clientes',   label: 'Clientes',    icon: Users         },
+  { to: '/app/orcamentos', label: 'Orçamentos',  icon: FileText      },
+  { to: '/app/catalogo',   label: 'Catálogo',    icon: Package       },
+  { to: '/app/escala',     label: 'Escala',      icon: ClipboardList },
+  { to: '/app/eventos',    label: 'Eventos',     icon: Archive       },
+  { to: '/app/indique',    label: 'Indicar',     icon: Gift          },
+]
+
+// Itens exclusivos para owner/admin
+const MANAGER_ONLY_NAV_ITEMS = [
+  { to: '/app/financeiro',    label: 'Financeiro',    icon: DollarSign },
+  { to: '/app/equipe',        label: 'Equipe',        icon: Users2     },
+  { to: '/app/configuracoes', label: 'Configurações', icon: Settings   },
 ]
 
 // ─── Logo mark SVG ───────────────────────────────────────────
@@ -258,10 +264,16 @@ interface SidebarProps {
 function Sidebar({ onClose }: SidebarProps) {
   const organization    = useAuthStore((s) => s.organization)
   const isPlatformAdmin = useIsPlatformAdmin()
+  const role            = useRole()
+
+  const canManage = role === 'owner' || role === 'admin'
+  const baseItems = canManage
+    ? [...ATENDENTE_NAV_ITEMS, ...MANAGER_ONLY_NAV_ITEMS]
+    : ATENDENTE_NAV_ITEMS
 
   const navItems = isPlatformAdmin
-    ? [...BASE_NAV_ITEMS, { to: '/app/admin', label: 'Admin', icon: Shield }]
-    : BASE_NAV_ITEMS
+    ? [...baseItems, { to: '/app/admin', label: 'Admin', icon: Shield }]
+    : baseItems
 
   return (
     <div

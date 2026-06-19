@@ -38,6 +38,7 @@ import {
 } from '@/services/customers'
 import { isBirthdaySoon, whatsappLink } from '@/lib/birthday'
 import { useAuthStore } from '@/stores/authStore'
+import { useCanManage } from '@/hooks/useRole'
 import type { CustomerWithStats } from '@/types/database'
 
 const PAGE_SIZE = 25
@@ -211,7 +212,8 @@ function DeleteConfirmDialog({
 // ── Clientes (página) ─────────────────────────────────────────
 export default function Clientes() {
   const organization = useAuthStore((s) => s.organization)
-  const orgId = organization?.id
+  const orgId        = organization?.id
+  const canManage    = useCanManage()
 
   // Dados paginados
   const [customers, setCustomers] = useState<CustomerWithStats[]>([])
@@ -471,6 +473,7 @@ export default function Clientes() {
         onClose={() => setDrawerOpen(false)}
         onEdit={openEdit}
         onDelete={openDelete}
+        canManage={canManage}
       />
 
       {/* ── Dialog de formulário (criar / editar) ── */}

@@ -17,6 +17,7 @@ interface DayPanelProps {
   onMarkRealizada: (event: EventWithDetails) => void
   onCancel: (event: EventWithDetails) => void
   onDelete: (event: EventWithDetails) => void
+  canManage?: boolean
 }
 
 export function DayPanel({
@@ -30,6 +31,7 @@ export function DayPanel({
   onMarkRealizada,
   onCancel,
   onDelete,
+  canManage = true,
 }: DayPanelProps) {
   const isOpen = !!dateStr
 
@@ -123,6 +125,7 @@ export function DayPanel({
                   onMarkRealizada={onMarkRealizada}
                   onCancel={onCancel}
                   onDelete={onDelete}
+                  canManage={canManage}
                 />
               ))}
             </div>

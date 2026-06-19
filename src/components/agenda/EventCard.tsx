@@ -22,6 +22,8 @@ interface EventCardProps {
   onMarkRealizada: (event: EventWithDetails) => void
   onCancel: (event: EventWithDetails) => void
   onDelete: (event: EventWithDetails) => void
+  /** false = oculta ações destrutivas (cancelar/excluir) — para atendentes */
+  canManage?: boolean
   className?: string
 }
 
@@ -33,6 +35,7 @@ export function EventCard({
   onMarkRealizada,
   onCancel,
   onDelete,
+  canManage = true,
   className,
 }: EventCardProps) {
   const isConfirmable = event.status === 'orcamento'
@@ -94,7 +97,7 @@ export function EventCard({
                   Marcar realizada
                 </DropdownMenuItem>
               )}
-              {isCancelable && (
+              {canManage && isCancelable && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => onCancel(event)} className="text-destructive">
@@ -103,10 +106,14 @@ export function EventCard({
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onDelete(event)} className="text-destructive">
-                Excluir
-              </DropdownMenuItem>
+              {canManage && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onDelete(event)} className="text-destructive">
+                    Excluir
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

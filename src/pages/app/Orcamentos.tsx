@@ -34,6 +34,7 @@ import { createEvent } from '@/services/events'
 import { listCatalogItems } from '@/services/catalog'
 import { useCustomers } from '@/hooks/useCustomers'
 import { useAuthStore } from '@/stores/authStore'
+import { useCanManage } from '@/hooks/useRole'
 import type { QuoteStatus, QuoteWithCustomer, CatalogItem } from '@/types/database'
 
 const fmtBRL = (cents: number | null) =>
@@ -59,12 +60,13 @@ async function copyLink(token: string): Promise<void> {
 // ── QuoteRow ──────────────────────────────────────────────────
 interface QuoteRowProps {
   quote: QuoteWithCustomer
-  onEdit:    (q: QuoteWithCustomer) => void
-  onDelete:  (q: QuoteWithCustomer) => void
-  onConvert: (q: QuoteWithCustomer) => void
+  onEdit:     (q: QuoteWithCustomer) => void
+  onDelete:   (q: QuoteWithCustomer) => void
+  onConvert:  (q: QuoteWithCustomer) => void
+  canManage?: boolean
 }
 
-function QuoteRow({ quote, onEdit, onDelete, onConvert }: QuoteRowProps) {
+function QuoteRow({ quote, onEdit, onDelete, onConvert, canManage = true }: QuoteRowProps) {
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {
@@ -177,14 +179,18 @@ function QuoteRow({ quote, onEdit, onDelete, onConvert }: QuoteRowProps) {
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => onDelete(quote)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Excluir
-              </DropdownMenuItem>
+              {canManage && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => onDelete(quote)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Excluir
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -196,7 +202,8 @@ function QuoteRow({ quote, onEdit, onDelete, onConvert }: QuoteRowProps) {
 // ── Orcamentos (página) ───────────────────────────────────────
 export default function Orcamentos() {
   const organization = useAuthStore((s) => s.organization)
-  const orgId = organization?.id
+  const orgId        = organization?.id
+  const canManage    = useCanManage()
 
   const [quotes,   setQuotes]   = useState<QuoteWithCustomer[]>([])
   const [loading,  setLoading]  = useState(false)
@@ -438,6 +445,7 @@ export default function Orcamentos() {
                     onEdit={openEdit}
                     onDelete={setDeleteTarget}
                     onConvert={handleConvert}
+                    canManage={canManage}
                   />
                 ))}
               </tbody>

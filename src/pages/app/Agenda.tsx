@@ -24,13 +24,15 @@ import { EventDialog, type EventFormPayload } from '@/components/agenda/EventDia
 import { useEvents } from '@/hooks/useEvents'
 import { useCustomers } from '@/hooks/useCustomers'
 import { useAuthStore } from '@/stores/authStore'
+import { useCanManage } from '@/hooks/useRole'
 import { trackPrimeiraFestaCriada } from '@/lib/analytics'
 import type { EventWithDetails } from '@/types/database'
 
 // ── Agenda ────────────────────────────────────────────────────
 export default function Agenda() {
   const organization = useAuthStore((s) => s.organization)
-  const orgId = organization?.id
+  const orgId        = organization?.id
+  const canManage    = useCanManage()
 
   // Mês atual navegável
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -276,6 +278,7 @@ export default function Agenda() {
               onCancel={handleCancel}
               onDelete={handleDelete}
               onNewEvent={(d) => openCreate(d)}
+              canManage={canManage}
             />
           </TabsContent>
 
@@ -298,6 +301,7 @@ export default function Agenda() {
                 onCancel={handleCancel}
                 onDelete={handleDelete}
                 onNew={() => openCreate()}
+                canManage={canManage}
               />
             )}
           </TabsContent>

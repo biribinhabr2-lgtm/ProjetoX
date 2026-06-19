@@ -26,6 +26,7 @@ interface EventListViewProps {
   onCancel: (event: EventWithDetails) => void
   onDelete: (event: EventWithDetails) => void
   onNew: () => void
+  canManage?: boolean
 }
 
 export function EventListView({
@@ -37,6 +38,7 @@ export function EventListView({
   onCancel,
   onDelete,
   onNew,
+  canManage = true,
 }: EventListViewProps) {
   const [search,         setSearch]         = useState('')
   const [activeStatuses, setActiveStatuses] = useState<EventStatus[]>([])
@@ -128,6 +130,7 @@ export function EventListView({
                     onMarkRealizada={onMarkRealizada}
                     onCancel={onCancel}
                     onDelete={onDelete}
+                    canManage={canManage}
                   />
                 ))}
               </div>

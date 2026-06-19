@@ -132,6 +132,7 @@ interface CustomerDrawerProps {
   onClose: () => void
   onEdit: (customer: CustomerWithStats) => void
   onDelete: (customer: CustomerWithStats) => void
+  canManage?: boolean
 }
 
 // ── CustomerDrawer ────────────────────────────────────────────
@@ -142,6 +143,7 @@ export function CustomerDrawer({
   onClose,
   onEdit,
   onDelete,
+  canManage = true,
 }: CustomerDrawerProps) {
   const [events,  setEvents]  = useState<EventWithDetails[]>([])
   const [loading, setLoading] = useState(false)
@@ -227,15 +229,17 @@ export function CustomerDrawer({
                 <Pencil className="h-4 w-4" />
                 Editar
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/5"
-                onClick={() => onDelete(customer)}
-              >
-                <Trash2 className="h-4 w-4" />
-                Excluir
-              </Button>
+              {canManage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/5"
+                  onClick={() => onDelete(customer)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Excluir
+                </Button>
+              )}
             </div>
           </SheetHeader>
 
