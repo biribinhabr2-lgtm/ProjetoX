@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { signIn } from '@/services/auth'
-import { useAuthStore } from '@/stores/authStore'
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -111,8 +110,6 @@ function BrandPanel() {
 export default function Login() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const refreshOrg = useAuthStore((s) => s.refreshOrg)
-  const organization = useAuthStore((s) => s.organization)
   const [submitting, setSubmitting] = useState(false)
 
   const {
@@ -125,15 +122,10 @@ export default function Login() {
     setSubmitting(true)
     try {
       await signIn(data.email, data.password)
-      await refreshOrg()
+      // onAuthStateChange dispara e seta loading:true; ProtectedRoute espera
+      // loading:false antes de decidir entre /app e /onboarding — sem corrida.
       const next = searchParams.get('next')
-      if (next) {
-        navigate(next, { replace: true })
-      } else if (organization) {
-        navigate('/app/agenda', { replace: true })
-      } else {
-        navigate('/onboarding', { replace: true })
-      }
+      navigate(next ?? '/app/agenda', { replace: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro ao entrar'
       toast.error(traduzirErroAuth(msg))
