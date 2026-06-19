@@ -50,7 +50,7 @@ const BASE_NAV_ITEMS = [
   { to: '/app/financeiro',    label: 'Financeiro',    icon: DollarSign    },
   { to: '/app/equipe',        label: 'Equipe',        icon: Users2        },
   { to: '/app/escala',        label: 'Escala',        icon: ClipboardList },
-  { to: '/app/eventos',       label: 'Histórico',     icon: Archive       },
+  { to: '/app/eventos',       label: 'Eventos',       icon: Archive       },
   { to: '/app/indique',       label: 'Indicar',       icon: Gift          },
   { to: '/app/configuracoes', label: 'Configurações', icon: Settings      },
 ]

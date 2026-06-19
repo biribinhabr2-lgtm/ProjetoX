@@ -1,9 +1,5 @@
 /**
- * Eventos — histórico de festas realizadas e canceladas.
- *
- * Leitura apenas. Lista todos os eventos com status terminal
- * (realizada / cancelada) da organização atual, com busca simples
- * por cliente ou título e ordenação por data (mais recente primeiro).
+ * Eventos — visão geral de TODOS os eventos da organização.
  *
  * Regra 2: componentes auxiliares em nível de módulo.
  * Regra 4: dados via src/services/events.ts.
@@ -18,9 +14,9 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
-import { listClosed } from '@/services/events'
+import { listAll } from '@/services/events'
 import { useAuthStore } from '@/stores/authStore'
-import type { EventWithDetails } from '@/types/database'
+import type { EventStatus, EventWithDetails } from '@/types/database'
 
 // ── Utilitários ───────────────────────────────────────────────
 
@@ -30,10 +26,14 @@ const fmtBRL = (cents: number) =>
 const fmtDate = (iso: string) =>
   format(parseISO(iso), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
 
-const STATUS_STYLES: Record<string, { label: string; className: string }> = {
+const STATUS_STYLES: Record<EventStatus, { label: string; className: string }> = {
+  orcamento: { label: 'Orçamento', className: 'bg-amber-100 text-amber-800 border-amber-200' },
+  confirmada: { label: 'Confirmada', className: 'bg-blue-100 text-blue-800 border-blue-200' },
   realizada: { label: 'Realizada', className: 'bg-green-100 text-green-800 border-green-200' },
   cancelada: { label: 'Cancelada', className: 'bg-stone-100 text-stone-600 border-stone-200' },
 }
+
+const ALL_STATUSES: EventStatus[] = ['orcamento', 'confirmada', 'realizada', 'cancelada']
 
 // ── EventRow ──────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ interface EventRowProps {
 }
 
 function EventRow({ event }: EventRowProps) {
-  const status = STATUS_STYLES[event.status] ?? { label: event.status, className: '' }
+  const style = STATUS_STYLES[event.status] ?? { label: event.status, className: '' }
 
   return (
     <tr className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
@@ -73,8 +73,8 @@ function EventRow({ event }: EventRowProps) {
         {fmtBRL(event.total_cents)}
       </td>
       <td className="py-3 px-4">
-        <Badge variant="outline" className={status.className}>
-          {status.label}
+        <Badge variant="outline" className={style.className}>
+          {style.label}
         </Badge>
       </td>
     </tr>
@@ -88,6 +88,7 @@ export default function Eventos() {
 
   const [events, setEvents] = useState<EventWithDetails[]>([])
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<EventStatus | ''>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -96,38 +97,71 @@ export default function Eventos() {
     setLoading(true)
     setError(null)
     try {
-      const data = await listClosed(orgId, search || undefined)
+      const data = await listAll(orgId, {
+        search: search || undefined,
+        status: statusFilter || undefined,
+      })
       setEvents(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar eventos')
     } finally {
       setLoading(false)
     }
-  }, [orgId, search])
+  }, [orgId, search, statusFilter])
 
   useEffect(() => {
     load()
   }, [load])
 
-  const realizedCount = events.filter((e) => e.status === 'realizada').length
-  const canceledCount = events.filter((e) => e.status === 'cancelada').length
-
   return (
     <div className="p-6 space-y-6">
       <PageHeader
-        title="Histórico de Eventos"
-        description="Festas realizadas e canceladas da sua organização"
+        title="Eventos"
+        description="Todos os eventos cadastrados na sua organização"
       />
 
-      {/* Busca */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por cliente ou título..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Filtros */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por cliente, criança ou título..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 w-72"
+          />
+        </div>
+
+        {/* Chips de status */}
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={() => setStatusFilter('')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              statusFilter === ''
+                ? 'bg-foreground text-background border-foreground'
+                : 'bg-background text-muted-foreground border-border hover:border-foreground/40'
+            }`}
+          >
+            Todos
+          </button>
+          {ALL_STATUSES.map((s) => {
+            const style = STATUS_STYLES[s]
+            const active = statusFilter === s
+            return (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(active ? '' : s)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                  active
+                    ? style.className
+                    : 'bg-background text-muted-foreground border-border hover:border-foreground/40'
+                }`}
+              >
+                {style.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Conteúdo */}
@@ -147,23 +181,21 @@ export default function Eventos() {
         </div>
       ) : events.length === 0 ? (
         <EmptyState
-          title={search ? 'Nenhum resultado' : 'Nenhum evento fechado ainda'}
+          title={search || statusFilter ? 'Nenhum resultado' : 'Nenhum evento cadastrado ainda'}
           description={
-            search
-              ? 'Tente outro nome de cliente ou título.'
-              : 'Eventos realizados e cancelados aparecerão aqui.'
+            search || statusFilter
+              ? 'Tente ajustar os filtros de busca ou status.'
+              : 'Crie o primeiro evento na aba Agenda.'
           }
         />
       ) : (
         <>
           {/* Resumo */}
-          <div className="flex gap-4 text-sm text-muted-foreground">
+          <div className="flex gap-3 flex-wrap text-sm text-muted-foreground">
             <span>
-              <strong className="text-foreground">{realizedCount}</strong> realizada{realizedCount !== 1 ? 's' : ''}
-            </span>
-            <span>·</span>
-            <span>
-              <strong className="text-foreground">{canceledCount}</strong> cancelada{canceledCount !== 1 ? 's' : ''}
+              <strong className="text-foreground">{events.length}</strong>{' '}
+              evento{events.length !== 1 ? 's' : ''}
+              {statusFilter ? ` (${STATUS_STYLES[statusFilter].label.toLowerCase()})` : ' no total'}
             </span>
           </div>
 

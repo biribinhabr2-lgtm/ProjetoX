@@ -170,6 +170,37 @@ export async function listClosed(
   )
 }
 
+export async function listAll(
+  orgId: string,
+  opts?: { search?: string; status?: EventStatus },
+): Promise<EventWithDetails[]> {
+  let query = supabase
+    .from('events')
+    .select(EVENT_SELECT)
+    .eq('org_id', orgId)
+    .order('date', { ascending: false })
+    .order('start_time', { ascending: false })
+
+  if (opts?.status) {
+    query = query.eq('status', opts.status)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+
+  const rows = (data as EventRow[]).map(rowToDetails)
+
+  if (!opts?.search) return rows
+
+  const q = opts.search.toLowerCase()
+  return rows.filter(
+    (e) =>
+      e.customer.name.toLowerCase().includes(q) ||
+      (e.title ?? '').toLowerCase().includes(q) ||
+      (e.customer.child_name ?? '').toLowerCase().includes(q),
+  )
+}
+
 // ── Detectar conflito de horário ─────────────────────────────
 export async function detectConflicts(opts: {
   orgId: string
