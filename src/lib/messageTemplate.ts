@@ -1,4 +1,4 @@
-// Funções puras de renderização de template de mensagem de escala.
+// Funções puras de renderização de templates de mensagem (escala e aniversário).
 // Sem dependências de React, Supabase ou browser — testável com vitest puro.
 
 export const DEFAULT_TEMPLATE =
@@ -76,6 +76,34 @@ export function formatDateBR(isoDate: string): string {
   const parts = isoDate.split('-')
   if (parts.length !== 3) return isoDate
   return `${parts[2]}/${parts[1]}/${parts[0]}`
+}
+
+// ── Template de aniversário ───────────────────────────────────
+
+export const DEFAULT_BIRTHDAY_TEMPLATE =
+  'Olá {responsavel}! 🎂 O aniversário de {crianca} está chegando!\n' +
+  '📅 Data: {data_aniversario}\n' +
+  'Que tal garantir uma festa incrível? Entre em contato e venha conferir nossos pacotes!'
+
+export interface BirthdayTemplateVariable {
+  key:     string
+  label:   string
+  example: string
+}
+
+export const BIRTHDAY_TEMPLATE_VARIABLES: BirthdayTemplateVariable[] = [
+  { key: 'crianca',          label: 'Nome da criança',      example: 'Sofia'       },
+  { key: 'responsavel',      label: 'Nome do responsável',  example: 'Ana Lima'    },
+  { key: 'data_aniversario', label: 'Data do aniversário',  example: '15/08'       },
+]
+
+/**
+ * Monta objeto de dados de exemplo para preview do template de aniversário.
+ */
+export function buildBirthdayExampleData(): Record<string, string> {
+  return Object.fromEntries(
+    BIRTHDAY_TEMPLATE_VARIABLES.map((v) => [v.key, v.example]),
+  )
 }
 
 /**

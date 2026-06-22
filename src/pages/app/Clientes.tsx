@@ -38,6 +38,7 @@ import {
 } from '@/services/customers'
 import { isBirthdaySoon, whatsappLink } from '@/lib/birthday'
 import { useAuthStore } from '@/stores/authStore'
+import { DEFAULT_BIRTHDAY_TEMPLATE } from '@/lib/messageTemplate'
 import { useCanManage } from '@/hooks/useRole'
 import type { CustomerWithStats } from '@/types/database'
 
@@ -352,7 +353,11 @@ export default function Clientes() {
 
       <div className="p-4 sm:p-6">
         {/* ── Radar de aniversários ── */}
-        <BirthdayRadar customers={allCustomers} onOpenCustomer={openDrawer} />
+        <BirthdayRadar
+          customers={allCustomers}
+          onOpenCustomer={openDrawer}
+          birthdayTemplate={organization?.birthday_message_template ?? DEFAULT_BIRTHDAY_TEMPLATE}
+        />
 
         {/* ── Barra de ferramentas ── */}
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">

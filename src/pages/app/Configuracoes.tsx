@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAuthStore } from '@/stores/authStore'
-import { updateOrg, updateStaffMessageTemplate } from '@/services/orgs'
+import { updateOrg, updateStaffMessageTemplate, updateBirthdayMessageTemplate } from '@/services/orgs'
 import { startSubscription, PLANS } from '@/services/billing'
 import type { BillingPlan } from '@/services/billing'
 import { listApiKeys, createApiKey, revokeApiKey } from '@/services/apiKeys'
@@ -51,6 +51,9 @@ import {
   TEMPLATE_VARIABLES,
   renderTemplate,
   buildExampleData,
+  DEFAULT_BIRTHDAY_TEMPLATE,
+  BIRTHDAY_TEMPLATE_VARIABLES,
+  buildBirthdayExampleData,
 } from '@/lib/messageTemplate'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -824,6 +827,112 @@ function MessagesSection() {
   )
 }
 
+// ─── BirthdayMessagesSection ─────────────────────────────────────────────────
+
+function BirthdayMessagesSection() {
+  const { organization, refreshOrg } = useAuthStore()
+  const [template, setTemplate] = useState(
+    organization?.birthday_message_template ?? DEFAULT_BIRTHDAY_TEMPLATE,
+  )
+  const [saving, setSaving] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const exampleData = buildBirthdayExampleData()
+  const preview = renderTemplate(template, exampleData)
+
+  function insertVariable(key: string) {
+    const ta = textareaRef.current
+    if (!ta) {
+      setTemplate((t) => t + `{${key}}`)
+      return
+    }
+    const start = ta.selectionStart
+    const end   = ta.selectionEnd
+    const next  = template.slice(0, start) + `{${key}}` + template.slice(end)
+    setTemplate(next)
+    requestAnimationFrame(() => {
+      ta.focus()
+      const pos = start + key.length + 2
+      ta.setSelectionRange(pos, pos)
+    })
+  }
+
+  async function handleSave() {
+    if (!organization) return
+    setSaving(true)
+    try {
+      await updateBirthdayMessageTemplate(organization.id, template)
+      await refreshOrg()
+      toast.success('Template de aniversário salvo!')
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err)
+      toast.error(`Erro ao salvar template: ${detail}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function handleRestore() {
+    setTemplate(DEFAULT_BIRTHDAY_TEMPLATE)
+    toast.info('Template restaurado para o padrão.')
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="mb-2 text-sm font-medium">
+          Variáveis disponíveis{' '}
+          <span className="text-muted-foreground font-normal">(clique para inserir na posição do cursor)</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {BIRTHDAY_TEMPLATE_VARIABLES.map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              onClick={() => insertVariable(v.key)}
+              className="rounded-full border bg-muted/60 px-2.5 py-1 text-xs font-mono transition-colors hover:bg-muted"
+              title={v.label}
+            >
+              {`{${v.key}}`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="birthday-template">Mensagem de aniversário</Label>
+          <Textarea
+            id="birthday-template"
+            ref={textareaRef}
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+            className="min-h-[160px] resize-y font-mono text-sm"
+            placeholder={DEFAULT_BIRTHDAY_TEMPLATE}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Preview (dados de exemplo)</Label>
+          <div className="min-h-[160px] whitespace-pre-wrap rounded-lg border bg-muted/40 px-4 py-3 text-sm leading-relaxed">
+            {preview || <span className="text-muted-foreground italic">Escreva o template ao lado…</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button size="sm" disabled={saving} onClick={handleSave}>
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving ? 'Salvando…' : 'Salvar template'}
+        </Button>
+        <Button size="sm" variant="ghost" className="gap-1.5 text-muted-foreground" onClick={handleRestore}>
+          <RotateCcw className="h-3.5 w-3.5" />
+          Restaurar padrão
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ─── MembersSection ──────────────────────────────────────────────────────────
 
 const ROLE_LABELS: Record<string, string> = {
@@ -1164,22 +1273,41 @@ export default function Configuracoes() {
 
         {/* ── Aba Mensagens ─────────────────────────────────────────────── */}
         <TabsContent value="mensagens">
-          <Card className="mt-4">
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                <CardTitle className="text-base" style={{ fontFamily: 'var(--font-display)' }}>
-                  Template de mensagem de escala
-                </CardTitle>
-              </div>
-              <CardDescription>
-                Customize a mensagem enviada por WhatsApp ao notificar funcionários sobre a escala.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MessagesSection />
-            </CardContent>
-          </Card>
+          <div className="mt-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base" style={{ fontFamily: 'var(--font-display)' }}>
+                    Template de mensagem de escala
+                  </CardTitle>
+                </div>
+                <CardDescription>
+                  Customize a mensagem enviada por WhatsApp ao notificar funcionários sobre a escala.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <MessagesSection />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-base" style={{ fontFamily: 'var(--font-display)' }}>
+                    Template de mensagem de aniversário
+                  </CardTitle>
+                </div>
+                <CardDescription>
+                  Customize a mensagem enviada por WhatsApp ao contatar responsáveis sobre o aniversário da criança.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BirthdayMessagesSection />
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* ── Aba API ───────────────────────────────────────────────────── */}

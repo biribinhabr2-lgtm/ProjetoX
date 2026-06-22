@@ -7,16 +7,22 @@
 
 import { Cake, MessageCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { daysUntilBirthday, ageAtNextBirthday, whatsappLink, isBirthdaySoon } from '@/lib/birthday'
+import { daysUntilBirthday, ageAtNextBirthday, isBirthdaySoon } from '@/lib/birthday'
+import {
+  DEFAULT_BIRTHDAY_TEMPLATE,
+  renderTemplate,
+  buildWhatsAppLink,
+} from '@/lib/messageTemplate'
 import type { CustomerWithStats } from '@/types/database'
 
 // ── BirthdayCard ─────────────────────────────────────────────
 interface BirthdayCardProps {
-  customer: CustomerWithStats
-  onOpen: (customer: CustomerWithStats) => void
+  customer:         CustomerWithStats
+  onOpen:           (customer: CustomerWithStats) => void
+  birthdayTemplate: string
 }
 
-function BirthdayCard({ customer, onOpen }: BirthdayCardProps) {
+function BirthdayCard({ customer, onOpen, birthdayTemplate }: BirthdayCardProps) {
   const days = daysUntilBirthday(customer.child_birthdate!)
   const age  = ageAtNextBirthday(customer.child_birthdate!)
 
@@ -30,6 +36,18 @@ function BirthdayCard({ customer, onOpen }: BirthdayCardProps) {
   // Formata data de aniversário (só mês e dia, no formato BR)
   const [, mm, dd] = customer.child_birthdate!.split('-')
   const birthdateDisplay = `${dd}/${mm}`
+
+  // Gera link WhatsApp com mensagem renderizada
+  const waHref = customer.phone
+    ? buildWhatsAppLink(
+        customer.phone,
+        renderTemplate(birthdayTemplate, {
+          crianca:          customer.child_name ?? '',
+          responsavel:      customer.name       ?? '',
+          data_aniversario: birthdateDisplay,
+        }),
+      )
+    : null
 
   const urgencyColor =
     days === 0
@@ -79,9 +97,9 @@ function BirthdayCard({ customer, onOpen }: BirthdayCardProps) {
         >
           {dayLabel}
         </Badge>
-        {customer.phone && (
+        {waHref && (
           <a
-            href={whatsappLink(customer.phone)}
+            href={waHref}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -98,15 +116,17 @@ function BirthdayCard({ customer, onOpen }: BirthdayCardProps) {
 
 // ── BirthdayRadar ─────────────────────────────────────────────
 interface BirthdayRadarProps {
-  customers: CustomerWithStats[]
-  windowDays?: number
-  onOpenCustomer: (customer: CustomerWithStats) => void
+  customers:        CustomerWithStats[]
+  windowDays?:      number
+  onOpenCustomer:   (customer: CustomerWithStats) => void
+  birthdayTemplate?: string
 }
 
 export function BirthdayRadar({
   customers,
   windowDays = 45,
   onOpenCustomer,
+  birthdayTemplate = DEFAULT_BIRTHDAY_TEMPLATE,
 }: BirthdayRadarProps) {
   const upcoming = customers
     .filter((c) => c.child_birthdate && isBirthdaySoon(c.child_birthdate, windowDays))
@@ -147,7 +167,7 @@ export function BirthdayRadar({
       {/* Grid de cards */}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {upcoming.slice(0, 6).map((c) => (
-          <BirthdayCard key={c.id} customer={c} onOpen={onOpenCustomer} />
+          <BirthdayCard key={c.id} customer={c} onOpen={onOpenCustomer} birthdayTemplate={birthdayTemplate} />
         ))}
       </div>
 

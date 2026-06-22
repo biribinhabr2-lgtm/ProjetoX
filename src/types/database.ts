@@ -38,6 +38,7 @@ export interface Organization {
   referred_by: string | null
   address: string | null
   staff_message_template: string | null
+  birthday_message_template: string | null
 }
 
 export interface Profile {

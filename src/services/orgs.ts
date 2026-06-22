@@ -86,6 +86,19 @@ export async function updateStaffMessageTemplate(
   if (error) throw error
 }
 
+/** Salva o template de mensagem de aniversário da organização. */
+export async function updateBirthdayMessageTemplate(
+  orgId: string,
+  template: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('organizations')
+    .update({ birthday_message_template: template })
+    .eq('id', orgId)
+
+  if (error) throw error
+}
+
 /** Busca organização e membership do usuário autenticado. */
 export async function getMyOrgAndMembership(
   userId: string,
