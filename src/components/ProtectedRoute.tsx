@@ -1,5 +1,7 @@
 import { Navigate } from 'react-router-dom'
+import { WifiOff, RefreshCw } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   children: React.ReactNode
@@ -14,8 +16,33 @@ function hasDeclinedInvites(): boolean {
   }
 }
 
+function OfflineScreen({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex h-screen flex-col items-center justify-center gap-6 bg-background px-6 text-center">
+      <div
+        className="flex h-16 w-16 items-center justify-center rounded-full"
+        style={{ background: 'var(--color-primary-light)' }}
+      >
+        <WifiOff className="h-7 w-7" style={{ color: 'var(--color-primary)' }} />
+      </div>
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
+          Sem conexão com o servidor
+        </h2>
+        <p className="max-w-xs text-sm text-muted-foreground">
+          Verifique sua internet e tente novamente. Seus dados não foram perdidos.
+        </p>
+      </div>
+      <Button onClick={onRetry} className="gap-2">
+        <RefreshCw className="h-4 w-4" />
+        Tentar novamente
+      </Button>
+    </div>
+  )
+}
+
 export function ProtectedRoute({ children }: Props) {
-  const { session, organization, loading } = useAuthStore()
+  const { session, organization, loading, networkError, retryLoad } = useAuthStore()
 
   if (loading) {
     return (
@@ -37,10 +64,14 @@ export function ProtectedRoute({ children }: Props) {
     )
   }
 
+  // Erro de rede: nunca deslogar, nunca redirecionar — mostrar tela de retry
+  if (networkError) {
+    return <OfflineScreen onRetry={() => void retryLoad()} />
+  }
+
   if (!session) return <Navigate to="/login" replace />
 
   if (!organization) {
-    // Usuário que recusou um convite → página de "sem acesso" (não onboarding)
     if (hasDeclinedInvites()) return <Navigate to="/sem-acesso" replace />
     return <Navigate to="/onboarding" replace />
   }

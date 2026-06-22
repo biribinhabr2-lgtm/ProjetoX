@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { signIn } from '@/services/auth'
+import { isNetworkError } from '@/lib/errorUtils'
 
 const schema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -127,8 +128,12 @@ export default function Login() {
       const next = searchParams.get('next')
       navigate(next ?? '/app/agenda', { replace: true })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao entrar'
-      toast.error(traduzirErroAuth(msg))
+      if (isNetworkError(err)) {
+        toast.error('Sem conexão com o servidor. Verifique sua internet e tente novamente.')
+      } else {
+        const msg = err instanceof Error ? err.message : 'Erro ao entrar'
+        toast.error(traduzirErroAuth(msg))
+      }
     } finally {
       setSubmitting(false)
     }

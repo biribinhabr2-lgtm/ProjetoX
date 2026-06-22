@@ -3,6 +3,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 import { getProfile } from '@/services/profiles'
 import { getMyOrgAndMembership } from '@/services/orgs'
+import { isNetworkError } from '@/lib/errorUtils'
 import type { Membership, Organization, Profile } from '@/types/database'
 
 interface AuthState {
@@ -12,10 +13,21 @@ interface AuthState {
   organization: Organization | null
   membership: Membership | null
   loading: boolean
+  /** true quando uma chamada de rede falhou sem resposta do servidor (sem conexão) */
+  networkError: boolean
 
   initialize: () => () => void
   refreshOrg: () => Promise<void>
+  retryLoad: () => Promise<void>
   clear: () => void
+}
+
+async function loadProfileAndOrg(userId: string) {
+  const [profile, orgResult] = await Promise.all([
+    getProfile(userId),
+    getMyOrgAndMembership(userId),
+  ])
+  return { profile, orgResult }
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -25,64 +37,76 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   organization: null,
   membership: null,
   loading: true,
+  networkError: false,
 
   initialize() {
-    // Carrega sessão inicial
-    supabase.auth.getSession().then(({ data }) => {
-      const session = data.session
-      if (!session) {
-        set({ session: null, user: null, loading: false })
-        return
-      }
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        const session = data.session
+        if (!session) {
+          set({ session: null, user: null, loading: false })
+          return
+        }
 
-      set({ session, user: session.user })
+        set({ session, user: session.user })
 
-      // Carrega profile e org em paralelo
-      Promise.all([
-        getProfile(session.user.id),
-        getMyOrgAndMembership(session.user.id),
-      ])
-        .then(([profile, orgResult]) => {
-          set({
-            profile,
-            organization: orgResult?.organization ?? null,
-            membership: orgResult?.membership ?? null,
-            loading: false,
+        loadProfileAndOrg(session.user.id)
+          .then(({ profile, orgResult }) => {
+            set({
+              profile,
+              organization: orgResult?.organization ?? null,
+              membership: orgResult?.membership ?? null,
+              loading: false,
+              networkError: false,
+            })
           })
-        })
-        .catch(() => {
+          .catch((err: unknown) => {
+            if (isNetworkError(err)) {
+              // Mantém sessão intacta; só sinaliza falta de conexão
+              set({ loading: false, networkError: true })
+            } else {
+              set({ loading: false })
+            }
+          })
+      })
+      .catch((err: unknown) => {
+        // getSession em si falhou (raro, mas pode ser rede)
+        if (isNetworkError(err)) {
+          set({ loading: false, networkError: true })
+        } else {
           set({ loading: false })
-        })
-    })
+        }
+      })
 
-    // Escuta mudanças de sessão
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
+        // Resposta real do servidor indicando sem sessão → deslogar
         get().clear()
         return
       }
 
-      // loading: true enquanto busca profile e org — evita redirect prematuro no ProtectedRoute
-      set({ session, user: session.user, loading: true })
+      set({ session, user: session.user, loading: true, networkError: false })
 
-      Promise.all([
-        getProfile(session.user.id),
-        getMyOrgAndMembership(session.user.id),
-      ])
-        .then(([profile, orgResult]) => {
+      loadProfileAndOrg(session.user.id)
+        .then(({ profile, orgResult }) => {
           set({
             profile,
             organization: orgResult?.organization ?? null,
             membership: orgResult?.membership ?? null,
             loading: false,
+            networkError: false,
           })
         })
-        .catch(() => {
-          set({ loading: false })
+        .catch((err: unknown) => {
+          if (isNetworkError(err)) {
+            set({ loading: false, networkError: true })
+          } else {
+            set({ loading: false })
+          }
         })
     })
 
-    // Retorna unsubscribe para limpar listener
     return () => {
       listener.subscription.unsubscribe()
     }
@@ -92,11 +116,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { user } = get()
     if (!user) return
 
-    const orgResult = await getMyOrgAndMembership(user.id)
-    set({
-      organization: orgResult?.organization ?? null,
-      membership: orgResult?.membership ?? null,
-    })
+    try {
+      const orgResult = await getMyOrgAndMembership(user.id)
+      set({
+        organization: orgResult?.organization ?? null,
+        membership: orgResult?.membership ?? null,
+        networkError: false,
+      })
+    } catch (err: unknown) {
+      if (isNetworkError(err)) {
+        set({ networkError: true })
+      }
+    }
+  },
+
+  async retryLoad() {
+    const { user, session } = get()
+    if (!session || !user) return
+
+    set({ loading: true, networkError: false })
+
+    try {
+      const { profile, orgResult } = await loadProfileAndOrg(user.id)
+      set({
+        profile,
+        organization: orgResult?.organization ?? null,
+        membership: orgResult?.membership ?? null,
+        loading: false,
+        networkError: false,
+      })
+    } catch (err: unknown) {
+      if (isNetworkError(err)) {
+        set({ loading: false, networkError: true })
+      } else {
+        set({ loading: false })
+      }
+    }
   },
 
   clear() {
@@ -107,6 +162,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       organization: null,
       membership: null,
       loading: false,
+      networkError: false,
     })
   },
 }))
