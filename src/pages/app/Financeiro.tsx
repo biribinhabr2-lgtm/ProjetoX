@@ -25,6 +25,7 @@ import {
 import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { BarChart6Months } from '@/components/financeiro/BarChart6Months'
+import { DespesasRadar } from '@/components/financeiro/DespesasRadar'
 import { TransactionForm, type TransactionFormValues } from '@/components/financeiro/TransactionForm'
 import {
   listByPeriod, listLast6MonthsSummary,
@@ -425,6 +426,9 @@ export default function Financeiro() {
             alert={overdueCount > 0}
           />
         </div>
+
+        {/* ── Radar de despesas a vencer ── */}
+        <DespesasRadar onEdit={openEdit} onRefresh={loadTransactions} />
 
         {/* ── Gráfico 6 meses ── */}
         {chartData.length > 0 && <BarChart6Months data={chartData} />}

@@ -183,6 +183,40 @@ export async function markPaid(id: string, paidAt?: string): Promise<Transaction
   return updateTransaction(id, { paid_at: paidAt ?? today })
 }
 
+/**
+ * Lista despesas não pagas com vencimento nos próximos `windowDays` dias
+ * ou já vencidas (sem limite retroativo configurável via `overdueDaysBack`).
+ */
+export async function listUpcomingExpenses(
+  orgId: string,
+  opts: { windowDays?: number; overdueDaysBack?: number } = {},
+): Promise<Transaction[]> {
+  const { windowDays = 7, overdueDaysBack = 90 } = opts
+
+  const today = new Date()
+  const pastLimit = new Date(today)
+  pastLimit.setDate(pastLimit.getDate() - overdueDaysBack)
+  const futureLimit = new Date(today)
+  futureLimit.setDate(futureLimit.getDate() + windowDays)
+
+  const from = pastLimit.toISOString().slice(0, 10)
+  const to   = futureLimit.toISOString().slice(0, 10)
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('org_id', orgId)
+    .eq('type', 'despesa')
+    .is('paid_at', null)
+    .not('due_date', 'is', null)
+    .gte('due_date', from)
+    .lte('due_date', to)
+    .order('due_date', { ascending: true })
+
+  if (error) throw error
+  return (data ?? []) as Transaction[]
+}
+
 // ── Mantém compatibilidade com useEvents (criação automática ao confirmar) ──
 export async function createEventTransactions(opts: {
   orgId:        string
